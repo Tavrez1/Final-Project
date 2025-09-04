@@ -1,21 +1,112 @@
-import { registerRootComponent } from 'expo';
+import * as Device from 'expo-device';
 import * as Location from 'expo-location';
-// import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Modal, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-// import { db } from '../firebase';
+import { Button, Modal, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+// import { MapView } from "@maplibre/maplibre-react-native";
+import { WebView } from "react-native-webview";
+
+import { leafletHTML } from '@/utils/constants';
+import { startBackgroundLocation, stopBackgroundLocation } from "../services/locationService";
+import "../services/tasks";
+
+
+// =================================== Push Notification============================================== Start
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      alert('Failed to get push token for push notification!');
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log(token);
+    
+  } else {
+    alert('Must use physical device for Push Notifications');
+    console.log('Must use physical device for Push Notifications');
+    
+  }
+
+  return token;
+}
+
+// =================================== Push Notification============================================== End
+
 
  export default function Index() {
-  const [location, setLocation] = useState(null);
+ 
+
+  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(7);
   const cancelRef = useRef(false);
   const timerRef = useRef(null);
+  const webviewRef = useRef<WebView>(null);
+  const webviewReady = useRef(false);
+
+ 
+
+  // =================================== Push Notification============================================== Start
+
+  const [expoPushToken, setExpoPushToken] = useState(''); //Notification State
+
+  useEffect(() => {
+    registerForPushNotificationsAsync().then(token => {setExpoPushToken(token);console.log(expoPushToken);
+    });
+
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log("Notification received:", notification);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // =================================== Push Notification============================================== End
+
+  //================================= Location ========================================= Start
+
+  useEffect(() => {
+    // Example: start tracking on mount
+    startBackgroundLocation();
+
+    // cleanup on unmount
+    return () => {
+      stopBackgroundLocation();
+    };
+  }, []);
+
+  //================================= Location ========================================= End
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("hello");
+      
       if (status !== 'granted') {
         alert('Permission to access location was denied');
         return;
@@ -23,8 +114,20 @@ import MapView, { Marker } from 'react-native-maps';
 
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
+      console.log("location",loc);
+      
     })();
   }, []);
+  useEffect(() => {
+    if (location && webviewReady.current) {
+      webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
+      console.log("update Location")
+      console.log(typeof location.latitude, typeof location.longitude);
+      
+    }
+    else console.log("not enough data in location",location);
+    
+  }, [location,webviewReady]);
 
   const triggerSOS = async () => {
     try {
@@ -34,6 +137,7 @@ import MapView, { Marker } from 'react-native-maps';
       //   timestamp: serverTimestamp()
       // });
       alert("Alert Sent! Your location has been shared.");
+      
     } catch (error) {
       console.log(error);
       alert("Error: Could not send alert.");
@@ -76,18 +180,40 @@ import MapView, { Marker } from 'react-native-maps';
     <View style={styles.container}>
       <View style={styles.mapContainer}> 
       {location ? (
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          showsUserLocation
-        >
-          <Marker coordinate={location} title="You" />
-        </MapView>
+//         <MapView style={{ flex: 1 }} />
+//         <MapView
+//           style={styles.map}
+//           initialRegion={{
+//             latitude: location.latitude,
+//             longitude: location.longitude,
+//             latitudeDelta: 0.01,
+//             longitudeDelta: 0.01,
+//           }}
+//           showsUserLocation
+//         >
+
+//           {/* <UrlTile
+//           urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+//           maximumZ={19}
+//           flipY={false}
+//           /> */}
+//           {/* <Marker coordinate={location} title="You" /> */}
+//         </MapView>
+        <WebView
+        ref={webviewRef}
+        onLoad={() => {
+          webviewReady.current = true;
+          if (location) webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
+          console.log("update Location",JSON.stringify({latitude:location.latitude,longitude:location.longitude}))
+        }}
+        javaScriptEnabled={true}
+        originWhitelist={["*"]}
+        source={{ html: leafletHTML }}
+        style={styles.map}
+        onMessage={(event) => {
+          console.log("Message from Leaflt:", event.nativeEvent.data);
+        }}
+        />
       ) : (
         <Text style={styles.loading}>Loading location...</Text>
       )}
@@ -126,12 +252,12 @@ const styles = StyleSheet.create({
   mapContainer: {
       marginLeft: "auto",
       marginRight: "auto",
-      height: "50%",
+      height: "100%",
       width: "100%",
       borderWidth: 2,
       borderColor: "#b8bab9",
       },
-  map: {  flex: 1 },
+  // map: {  flex: 1 },
   loading: {
     flex: 1,
     textAlign: 'center',
