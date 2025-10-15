@@ -4,27 +4,29 @@ import { GEOFENCE_TASK_NAME, LOCATION_TASK_NAME } from "../utils/constants";
 export async function startBackgroundLocation() {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    console.log("Foreground location permission denied");
+    console.log("BGC: Foreground location permission denied");
     return;
   }
 
   const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
   if (bgStatus !== "granted") {
-    console.log("Background location permission denied");
+    console.log("BGC: Background location permission denied");
     return;
   }
 
-  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+  let location = await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    distanceInterval: 100, // only update if moved >100m
+    distanceInterval: 100, // only update if moved >100mr
     deferredUpdatesInterval: 60000, // throttle updates
     foregroundService: {
       notificationTitle: "Location Tracking",
       notificationBody: "Running in background",
     },
   });
+    
+  await console.log("BGC: location:" + location);
 
-  console.log("✅ Background location tracking started");
+  console.log("BGC: ✅ Background location tracking started");
 }
 
 export async function stopBackgroundLocation() {
@@ -44,10 +46,10 @@ export async function startGeofence(latitude: number, longitude: number, radius 
     },
   ]);
 
-  console.log(`✅ Geofence started at [${latitude}, ${longitude}] with radius ${radius}m`);
+  console.log(`BGC:  ✅ Geofence started at [${latitude}, ${longitude}] with radius ${radius}m`);
 }
 
 export async function stopGeofence() {
   await Location.stopGeofencingAsync(GEOFENCE_TASK_NAME);
-  console.log("🛑 Geofence stopped");
+  console.log("BGC: 🛑 Geofence stopped");
 }

@@ -1,0 +1,30 @@
+{
+  "originalContent": "import { Stack } from 'expo-router';\r\n\r\nexport default function RootLayout() {\r\n  return (\r\n    <Stack >\r\n      <Stack.Screen name=\"index\" options={{ title: 'Home' }} />\r\n      <Stack.Screen name=\"about\" options={{ title: 'About' }} />\r\n    </Stack>\r\n  );\r\n}\r\n\r\n// import { Stack } from \"expo-router\";\r\n\r\n// export default function Layout() {\r\n//   return <Stack />;\r\n// }",
+  "comments": [
+    {
+      "text": "// import { Stack } from \"expo-router\";",
+      "line": 11,
+      "start": 262,
+      "end": 301
+    },
+    {
+      "text": "// export default function Layout() {",
+      "line": 13,
+      "start": 305,
+      "end": 342
+    },
+    {
+      "text": "//   return <Stack />;",
+      "line": 14,
+      "start": 344,
+      "end": 366
+    },
+    {
+      "text": "// }",
+      "line": 15,
+      "start": 368,
+      "end": 372
+    }
+  ],
+  "filePath": "app\\_layout.tsx"
+}

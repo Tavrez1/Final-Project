@@ -11,7 +11,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, ({ data, error }) => {
   if (data) {
     const { locations } = data as any;
     const location = locations[0];
-    console.log("📍 Background location update:", location.coords);
+    // console.log("📍 Background location update:", location.coords);
     // 👉 send location to server here if needed
   }
 });

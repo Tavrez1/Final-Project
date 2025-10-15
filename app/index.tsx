@@ -2,16 +2,17 @@ import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Modal, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
-// import { MapView } from "@maplibre/maplibre-react-native";
+import { AppState, Button, Modal, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+
+
 import { WebView } from "react-native-webview";
 
-import { leafletHTML } from '@/utils/constants';
+import { router } from 'expo-router';
 import { startBackgroundLocation, stopBackgroundLocation } from "../services/locationService";
 import "../services/tasks";
 
-
-// =================================== Push Notification============================================== Start
+import { Menu } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -45,21 +46,17 @@ async function registerForPushNotificationsAsync() {
     }
     token = (await Notifications.getExpoPushTokenAsync()).data;
       console.log(token);
-    
+
   } else {
     alert('Must use physical device for Push Notifications');
     console.log('Must use physical device for Push Notifications');
-    
+
   }
 
   return token;
 }
 
-// =================================== Push Notification============================================== End
-
-
  export default function Index() {
- 
 
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -69,14 +66,12 @@ async function registerForPushNotificationsAsync() {
   const webviewRef = useRef<WebView>(null);
   const webviewReady = useRef(false);
 
- 
-
-  // =================================== Push Notification============================================== Start
-
-  const [expoPushToken, setExpoPushToken] = useState(''); //Notification State
+  const [expoPushToken, setExpoPushToken] = useState(''); 
 
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => {setExpoPushToken(token);console.log(expoPushToken);
+    registerForPushNotificationsAsync().then(token => {
+        setExpoPushToken(token);
+        console.log(expoPushToken);
     });
 
     const subscription = Notifications.addNotificationReceivedListener(notification => {
@@ -86,27 +81,23 @@ async function registerForPushNotificationsAsync() {
     return () => subscription.remove();
   }, []);
 
-  // =================================== Push Notification============================================== End
-
-  //================================= Location ========================================= Start
-
   useEffect(() => {
-    // Example: start tracking on mount
-    startBackgroundLocation();
-
-    // cleanup on unmount
+    AppState.addEventListener("change", (nextState) => {
+    if (nextState === "active") {
+        startBackgroundLocation();
+    }
+    });
+      
     return () => {
       stopBackgroundLocation();
     };
   }, []);
 
-  //================================= Location ========================================= End
-
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       console.log("hello");
-      
+
       if (status !== 'granted') {
         alert('Permission to access location was denied');
         return;
@@ -115,7 +106,7 @@ async function registerForPushNotificationsAsync() {
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
       console.log("location",loc);
-      
+
     })();
   }, []);
   useEffect(() => {
@@ -123,21 +114,17 @@ async function registerForPushNotificationsAsync() {
       webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
       console.log("update Location")
       console.log(typeof location.latitude, typeof location.longitude);
-      
+
     }
     else console.log("not enough data in location",location);
-    
+
   }, [location,webviewReady]);
 
   const triggerSOS = async () => {
     try {
-      // await addDoc(collection(db, 'alerts'), {
-      //   latitude: location.latitude,
-      //   longitude: location.longitude,
-      //   timestamp: serverTimestamp()
-      // });
+
       alert("Alert Sent! Your location has been shared.");
-      
+
     } catch (error) {
       console.log(error);
       alert("Error: Could not send alert.");
@@ -176,54 +163,49 @@ async function registerForPushNotificationsAsync() {
     triggerSOS();
   };
 
-  return (
-    <View style={styles.container}>
+     return (
+      <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
+             
+      <View style={styles.container}>
+          
+          <View style={{ margin:25, width: 40, height: 40, position: 'absolute', backgroundColor: 'white', zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 10}}>
+              <Menu size={ 20} />
+          </View>
       <View style={styles.mapContainer}> 
       {location ? (
-//         <MapView style={{ flex: 1 }} />
-//         <MapView
-//           style={styles.map}
-//           initialRegion={{
-//             latitude: location.latitude,
-//             longitude: location.longitude,
-//             latitudeDelta: 0.01,
-//             longitudeDelta: 0.01,
-//           }}
-//           showsUserLocation
-//         >
 
-//           {/* <UrlTile
-//           urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-//           maximumZ={19}
-//           flipY={false}
-//           /> */}
-//           {/* <Marker coordinate={location} title="You" /> */}
-//         </MapView>
         <WebView
         ref={webviewRef}
-        onLoad={() => {
-          webviewReady.current = true;
-          if (location) webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
-          console.log("update Location",JSON.stringify({latitude:location.latitude,longitude:location.longitude}))
-        }}
+        // source={{ html: leafletHTML }}
+        source={require('../assets/html_pages/index.html')}
         javaScriptEnabled={true}
         originWhitelist={["*"]}
-        source={{ html: leafletHTML }}
-        style={styles.map}
+        onLoad={() => {
+            webviewReady.current = true;
+            if (location) {
+                webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
+            }
+            console.log("update Location",JSON.stringify({latitude:location.latitude,longitude:location.longitude}))
+        }}
+
         onMessage={(event) => {
           console.log("Message from Leaflt:", event.nativeEvent.data);
-        }}
-        />
+        }}>
+        </WebView>
+
       ) : (
         <Text style={styles.loading}>Loading location...</Text>
       )}
       </View>
 
-      <TouchableOpacity style={styles.sosButton} onPress={sendSOS}>
+          <TouchableOpacity style={styles.sosButton}
+            //   onPress={sendSOS}
+                onPress={() => router.push("/contacts")}
+          >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
 
-      {/* Modal for countdown */}
+      {}
       <Modal
         visible={modalVisible}
         transparent
@@ -244,6 +226,7 @@ async function registerForPushNotificationsAsync() {
         </View>
       </Modal>
     </View>
+      </SafeAreaView>
   );
 }
 
@@ -257,7 +240,7 @@ const styles = StyleSheet.create({
       borderWidth: 2,
       borderColor: "#b8bab9",
       },
-  // map: {  flex: 1 },
+
   loading: {
     flex: 1,
     textAlign: 'center',
@@ -267,7 +250,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 40,
     left: '50%',
-    transform: [{ translateX: -50 }],
+    transform: [{ translateX: "-50%" }],
     backgroundColor: 'red',
     paddingVertical: 14,
     paddingHorizontal: 40,
@@ -308,5 +291,3 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
   },
 });
-
-// registerRootComponent(App);

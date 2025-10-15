@@ -1,0 +1,48 @@
+{
+  "originalContent": "import { registerRootComponent } from 'expo';\r\nimport * as Location from 'expo-location';\r\nimport { useEffect, useRef, useState } from 'react';\r\nimport { ActivityIndicator, Button, Modal, Text, TouchableOpacity, Vibration, View } from 'react-native';\r\nimport MapView, { Circle, Marker } from 'react-native-maps';\r\nimport styles from './styles';\r\n\r\nexport default function App() {\r\n    const [location, setLocation] = useState(null);\r\n    const [modalVisible, setModalVisible] = useState(false);\r\n    const [countdown, setCountdown] = useState(7);\r\n    const cancelRef = useRef(false);\r\n    const timerRef = useRef(null);\r\n\r\n    useEffect(() => {\r\n        (async () => {\r\n            let { status } = await Location.requestForegroundPermissionsAsync();\r\n            if (status !== 'granted') {\r\n                alert('Permission to access location was denied');\r\n                return;\r\n            }\r\n\r\n            let loc = await Location.getCurrentPositionAsync({});\r\n            setLocation(loc.coords);\r\n        })();\r\n    }, []);\r\n\r\n    const triggerSOS = async () => {\r\n        try {\r\n            // await addDoc(collection(db, 'alerts'), {\r\n            //   latitude: location.latitude,\r\n            //   longitude: location.longitude,\r\n            //   timestamp: serverTimestamp()\r\n            // });\r\n            alert(\"Alert Sent! Your location has been shared.\");\r\n        } catch (error) {\r\n            console.log(error);\r\n            alert(\"Error: Could not send alert.\");\r\n        }\r\n    };\r\n\r\n    const sendSOS = () => {\r\n        cancelRef.current = false;\r\n        Vibration.vibrate(500);\r\n        setCountdown(7);\r\n        setModalVisible(true);\r\n        console.log(modalVisible);\r\n\r\n        timerRef.current = setInterval(() => {\r\n            setCountdown(prev => {\r\n                if (prev <= 1) {\r\n                    clearInterval(timerRef.current);\r\n                    setModalVisible(false);\r\n                    if (!cancelRef.current) {\r\n                        triggerSOS();\r\n                    }\r\n                }\r\n                return prev - 1;\r\n            });\r\n        }, 1000);\r\n    };\r\n\r\n    const cancelSOS = () => {\r\n        cancelRef.current = true;\r\n        clearInterval(timerRef.current);\r\n        setModalVisible(false);\r\n    };\r\n\r\n    const confirmSOS = () => {\r\n        clearInterval(timerRef.current);\r\n        setModalVisible(false);\r\n        triggerSOS();\r\n    };\r\n\r\n    return (\r\n        <View style={styles.container}>\r\n            <View style={styles.mapContainer}>\r\n                {location ? (\r\n                    <MapView\r\n                        style={styles.map}\r\n                        initialRegion={{\r\n                            latitude: location.latitude,\r\n                            longitude: location.longitude,\r\n                            latitudeDelta: 0.01,\r\n                            longitudeDelta: 0.01,\r\n                        }}\r\n                    >\r\n                        <Marker coordinate={location} title={\"You\"}>\r\n                        </Marker>\r\n                        <Circle\r\n                            center={location}\r\n                            radius={300}\r\n                            strokeWidth={2}\r\n                            strokeColor=\"rgba(0, 0, 255, 0.2)\"\r\n                            fillColor=\"rgba(0, 0, 255, 0.1)\"\r\n                        />\r\n                    </MapView>\r\n                ) : (\r\n                    <View>\r\n                        <ActivityIndicator />\r\n                        <Text style={styles.loading}>Loading location...</Text>\r\n                    </View>\r\n                )}\r\n            </View>\r\n\r\n            {/* Button */}\r\n            <TouchableOpacity style={styles.sosButton} onPress={sendSOS}>\r\n                <Text style={styles.sosText}>SOS</Text>\r\n            </TouchableOpacity>\r\n\r\n            {/* Modal for countdown */}\r\n            <Modal\r\n                visible={modalVisible}\r\n                transparent\r\n                animationType=\"fade\"\r\n                onRequestClose={cancelSOS}\r\n            >\r\n                <View style={styles.modalOverlay}>\r\n                    <View style={styles.modalContent}>\r\n                        <Text style={styles.modalTitle}>Sending Alert!</Text>\r\n                        <Text style={styles.modalMsg}>\r\n                            This will send your location to nearby users in {countdown} seconds unless you cancel.\r\n                        </Text>\r\n                        <View style={styles.modalButtons}>\r\n                            <Button title=\"OK\" onPress={confirmSOS} />\r\n                            <Button title={`Cancel (${countdown})`} onPress={cancelSOS} color=\"red\" />\r\n                        </View>\r\n                    </View>\r\n                </View>\r\n            </Modal>\r\n        </View>\r\n    );\r\n}\r\n\r\n\r\nregisterRootComponent(App);\r\n",
+  "comments": [
+    {
+      "text": "// await addDoc(collection(db, 'alerts'), {",
+      "line": 29,
+      "start": 1104,
+      "end": 1147
+    },
+    {
+      "text": "//   latitude: location.latitude,",
+      "line": 30,
+      "start": 1161,
+      "end": 1194
+    },
+    {
+      "text": "//   longitude: location.longitude,",
+      "line": 31,
+      "start": 1208,
+      "end": 1243
+    },
+    {
+      "text": "//   timestamp: serverTimestamp()",
+      "line": 32,
+      "start": 1257,
+      "end": 1290
+    },
+    {
+      "text": "// });",
+      "line": 33,
+      "start": 1304,
+      "end": 1310
+    },
+    {
+      "text": "/* Button */",
+      "line": 105,
+      "start": 3663,
+      "end": 3675
+    },
+    {
+      "text": "/* Modal for countdown */",
+      "line": 110,
+      "start": 3858,
+      "end": 3883
+    }
+  ],
+  "filePath": "app\\App.jsx"
+}

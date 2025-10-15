@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Leaflet Map with Marker</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+
+        window.addEventListener('message', (event) => {
+            const loc = JSON.parse(event.data);
+            console.log("loc" + loc.latitude);
+            var map = L.map('map').setView([20.5937, 78.9629], 6); // Centered on India
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add a marker
+            var marker = L.marker([28.6139, 77.2090]).addTo(map); // New Delhi
+
+            // Add a popup to the marker
+            marker.bindPopup("<b>Hello!</b><br>This is New Delhi.").openPopup();
+        })
+    </script>
+</body>
+
+</html>

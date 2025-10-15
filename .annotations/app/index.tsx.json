@@ -1,0 +1,234 @@
+{
+  "originalContent": "import * as Device from 'expo-device';\r\nimport * as Location from 'expo-location';\r\nimport * as Notifications from 'expo-notifications';\r\nimport React, { useEffect, useRef, useState } from 'react';\r\nimport { Button, Modal, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';\r\n// import { MapView } from \"@maplibre/maplibre-react-native\";\r\nimport { WebView } from \"react-native-webview\";\r\n\r\nimport { leafletHTML } from '@/utils/constants';\r\nimport { startBackgroundLocation, stopBackgroundLocation } from \"../services/locationService\";\r\nimport \"../services/tasks\";\r\n\r\n\r\n// >>> =================================== Push Notification============================================== Start\r\n\r\nNotifications.setNotificationHandler({\r\n  handleNotification: async () => ({\r\n    shouldShowBanner: true,\r\n    shouldShowList: true,\r\n    shouldPlaySound: false,\r\n    shouldSetBadge: false,\r\n  }),\r\n});\r\n\r\nasync function registerForPushNotificationsAsync() {\r\n  let token;\r\n\r\n  if (Platform.OS === 'android') {\r\n    await Notifications.setNotificationChannelAsync('default', {\r\n      name: 'default',\r\n      importance: Notifications.AndroidImportance.MAX,\r\n    });\r\n  }\r\n\r\n  if (Device.isDevice) {\r\n    const { status: existingStatus } = await Notifications.getPermissionsAsync();\r\n    let finalStatus = existingStatus;\r\n    if (existingStatus !== 'granted') {\r\n      const { status } = await Notifications.requestPermissionsAsync();\r\n      finalStatus = status;\r\n    }\r\n    if (finalStatus !== 'granted') {\r\n      alert('Failed to get push token for push notification!');\r\n      return;\r\n    }\r\n    token = (await Notifications.getExpoPushTokenAsync()).data;\r\n      console.log(token);\r\n    \r\n  } else {\r\n    alert('Must use physical device for Push Notifications');\r\n    console.log('Must use physical device for Push Notifications');\r\n    \r\n  }\r\n\r\n  return token;\r\n}\r\n\r\n// >>> =================================== Push Notification============================================== End\r\n\r\n\r\n export default function Index() {\r\n \r\n\r\n  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);\r\n  const [modalVisible, setModalVisible] = useState(false);\r\n  const [countdown, setCountdown] = useState(7);\r\n  const cancelRef = useRef(false);\r\n  const timerRef = useRef(null);\r\n  const webviewRef = useRef<WebView>(null);\r\n  const webviewReady = useRef(false);\r\n\r\n \r\n\r\n  // >>> =================================== Push Notification============================================== Start\r\n\r\n  const [expoPushToken, setExpoPushToken] = useState(''); //Notification State\r\n\r\n  useEffect(() => {\r\n    registerForPushNotificationsAsync().then(token => {setExpoPushToken(token);console.log(expoPushToken);\r\n    });\r\n\r\n    const subscription = Notifications.addNotificationReceivedListener(notification => {\r\n      console.log(\"Notification received:\", notification);\r\n    });\r\n\r\n    return () => subscription.remove();\r\n  }, []);\r\n\r\n  // >>> =================================== Push Notification============================================== End\r\n\r\n  // >>> ================================= Location ========================================= Start\r\n\r\n  useEffect(() => {\r\n    // Example: start tracking on mount\r\n    startBackgroundLocation();\r\n\r\n    // cleanup on unmount\r\n    return () => {\r\n      stopBackgroundLocation();\r\n    };\r\n  }, []);\r\n\r\n  // >>> ================================= Location ========================================= End\r\n\r\n  useEffect(() => {\r\n    (async () => {\r\n      let { status } = await Location.requestForegroundPermissionsAsync();\r\n      console.log(\"hello\");\r\n      \r\n      if (status !== 'granted') {\r\n        alert('Permission to access location was denied');\r\n        return;\r\n      }\r\n\r\n      let loc = await Location.getCurrentPositionAsync({});\r\n      setLocation(loc.coords);\r\n      console.log(\"location\",loc);\r\n      \r\n    })();\r\n  }, []);\r\n  useEffect(() => {\r\n    if (location && webviewReady.current) {\r\n      webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));\r\n      console.log(\"update Location\")\r\n      console.log(typeof location.latitude, typeof location.longitude);\r\n      \r\n    }\r\n    else console.log(\"not enough data in location\",location);\r\n    \r\n  }, [location,webviewReady]);\r\n\r\n  const triggerSOS = async () => {\r\n    try {\r\n      // await addDoc(collection(db, 'alerts'), {\r\n      //   latitude: location.latitude,\r\n      //   longitude: location.longitude,\r\n      //   timestamp: serverTimestamp()\r\n      // });\r\n      alert(\"Alert Sent! Your location has been shared.\");\r\n      \r\n    } catch (error) {\r\n      console.log(error);\r\n      alert(\"Error: Could not send alert.\");\r\n    }\r\n  };\r\n\r\n  const sendSOS = () => {\r\n    cancelRef.current = false;\r\n    Vibration.vibrate(500);\r\n    setCountdown(7);\r\n    setModalVisible(true);\r\n\r\n    timerRef.current = setInterval(() => {\r\n      setCountdown(prev => {\r\n        if (prev <= 1) {\r\n          clearInterval(timerRef.current);\r\n          setModalVisible(false);\r\n          if (!cancelRef.current) {\r\n            triggerSOS();\r\n          }\r\n        }\r\n        return prev - 1;\r\n      });\r\n    }, 1000);\r\n  };\r\n\r\n  const cancelSOS = () => {\r\n    cancelRef.current = true;\r\n    clearInterval(timerRef.current);\r\n    setModalVisible(false);\r\n  };\r\n\r\n  const confirmSOS = () => {\r\n    clearInterval(timerRef.current);\r\n    setModalVisible(false);\r\n    triggerSOS();\r\n  };\r\n\r\n  return (\r\n    <View style={styles.container}>\r\n      <View style={styles.mapContainer}> \r\n      {location ? (\r\n//         <MapView style={{ flex: 1 }} />\r\n//         <MapView\r\n//           style={styles.map}\r\n//           initialRegion={{\r\n//             latitude: location.latitude,\r\n//             longitude: location.longitude,\r\n//             latitudeDelta: 0.01,\r\n//             longitudeDelta: 0.01,\r\n//           }}\r\n//           showsUserLocation\r\n//         >\r\n\r\n//           {/* <UrlTile\r\n//           urlTemplate=\"https://tile.openstreetmap.org/{z}/{x}/{y}.png\"\r\n//           maximumZ={19}\r\n//           flipY={false}\r\n//           /> */}\r\n//           {/* <Marker coordinate={location} title=\"You\" /> */}\r\n//         </MapView>\r\n        <WebView\r\n        ref={webviewRef}\r\n        source={{ html: leafletHTML }}\r\n        javaScriptEnabled={true}\r\n        originWhitelist={[\"*\"]}\r\n        onLoad={() => {\r\n            webviewReady.current = true;\r\n            if (location) {\r\n                webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));\r\n            }\r\n            console.log(\"update Location\",JSON.stringify({latitude:location.latitude,longitude:location.longitude}))\r\n        }}\r\n        // style={styles.map}\r\n        onMessage={(event) => {\r\n          console.log(\"Message from Leaflt:\", event.nativeEvent.data);\r\n        }}>\r\n                      {/* <Marker coordinate={location} title=\"You\" /> */}\r\n\r\n        </WebView>\r\n        \r\n      ) : (\r\n        <Text style={styles.loading}>Loading location...</Text>\r\n      )}\r\n      </View>\r\n\r\n      <TouchableOpacity style={styles.sosButton} onPress={sendSOS}>\r\n        <Text style={styles.sosText}>SOS</Text>\r\n      </TouchableOpacity>\r\n\r\n      {/* Modal for countdown */}\r\n      <Modal\r\n        visible={modalVisible}\r\n        transparent\r\n        animationType=\"fade\"\r\n        onRequestClose={cancelSOS}\r\n      >\r\n        <View style={styles.modalOverlay}>\r\n          <View style={styles.modalContent}>\r\n            <Text style={styles.modalTitle}>Sending Alert!</Text>\r\n            <Text style={styles.modalMsg}>\r\n              This will send your location to nearby users in {countdown} seconds unless you cancel.\r\n            </Text>\r\n            <View style={styles.modalButtons}>\r\n              <Button title=\"OK\" onPress={confirmSOS} />\r\n              <Button title={`Cancel (${countdown})`} onPress={cancelSOS} color=\"red\" />\r\n            </View>\r\n          </View>\r\n        </View>\r\n      </Modal>\r\n    </View>\r\n  );\r\n}\r\n\r\nconst styles = StyleSheet.create({\r\n  container: { flex: 1},\r\n  mapContainer: {\r\n      marginLeft: \"auto\",\r\n      marginRight: \"auto\",\r\n      height: \"100%\",\r\n      width: \"100%\",\r\n      borderWidth: 2,\r\n      borderColor: \"#b8bab9\",\r\n      },\r\n  // map: {  flex: 1 },\r\n  loading: {\r\n    flex: 1,\r\n    textAlign: 'center',\r\n    textAlignVertical: 'center',\r\n  },\r\n  sosButton: {\r\n    position: 'absolute',\r\n    bottom: 40,\r\n    left: '50%',\r\n    transform: [{ translateX: -50 }],\r\n    backgroundColor: 'red',\r\n    paddingVertical: 14,\r\n    paddingHorizontal: 40,\r\n    borderRadius: 50,\r\n    elevation: 10,\r\n  },\r\n  sosText: {\r\n    color: 'white',\r\n    fontSize: 24,\r\n    fontWeight: 'bold',\r\n    textAlign: 'center',\r\n  },\r\n  modalOverlay: {\r\n    flex: 1,\r\n    backgroundColor: 'rgba(0,0,0,0.5)',\r\n    justifyContent: 'center',\r\n    alignItems: 'center',\r\n  },\r\n  modalContent: {\r\n    backgroundColor: 'white',\r\n    padding: 25,\r\n    borderRadius: 10,\r\n    width: '80%',\r\n  },\r\n  modalTitle: {\r\n    fontSize: 20,\r\n    fontWeight: 'bold',\r\n    marginBottom: 10,\r\n    textAlign: 'center',\r\n  },\r\n  modalMsg: {\r\n    fontSize: 16,\r\n    textAlign: 'center',\r\n    marginBottom: 20,\r\n  },\r\n  modalButtons: {\r\n    flexDirection: 'row',\r\n    justifyContent: 'space-around',\r\n  },\r\n});\r\n\r\n// registerRootComponent(App);\r\n",
+  "comments": [
+    {
+      "text": "// import { MapView } from \"@maplibre/maplibre-react-native\";",
+      "line": 5,
+      "start": 309,
+      "end": 370
+    },
+    {
+      "text": "// >>> =================================== Push Notification============================================== Start",
+      "line": 13,
+      "start": 602,
+      "end": 714
+    },
+    {
+      "text": "// >>> =================================== Push Notification============================================== End",
+      "line": 57,
+      "start": 1891,
+      "end": 2001
+    },
+    {
+      "text": "// >>> =================================== Push Notification============================================== Start",
+      "line": 73,
+      "start": 2410,
+      "end": 2522
+    },
+    {
+      "text": "//Notification State",
+      "line": 75,
+      "start": 2584,
+      "end": 2604
+    },
+    {
+      "text": "// >>> =================================== Push Notification============================================== End",
+      "line": 88,
+      "start": 2965,
+      "end": 3075
+    },
+    {
+      "text": "// >>> ================================= Location ========================================= Start",
+      "line": 90,
+      "start": 3081,
+      "end": 3178
+    },
+    {
+      "text": "// Example: start tracking on mount",
+      "line": 93,
+      "start": 3207,
+      "end": 3242
+    },
+    {
+      "text": "// cleanup on unmount",
+      "line": 96,
+      "start": 3282,
+      "end": 3303
+    },
+    {
+      "text": "// >>> ================================= Location ========================================= End",
+      "line": 102,
+      "start": 3381,
+      "end": 3476
+    },
+    {
+      "text": "// await addDoc(collection(db, 'alerts'), {",
+      "line": 133,
+      "start": 4379,
+      "end": 4422
+    },
+    {
+      "text": "//   latitude: location.latitude,",
+      "line": 134,
+      "start": 4430,
+      "end": 4463
+    },
+    {
+      "text": "//   longitude: location.longitude,",
+      "line": 135,
+      "start": 4471,
+      "end": 4506
+    },
+    {
+      "text": "//   timestamp: serverTimestamp()",
+      "line": 136,
+      "start": 4514,
+      "end": 4547
+    },
+    {
+      "text": "// });",
+      "line": 137,
+      "start": 4555,
+      "end": 4561
+    },
+    {
+      "text": "//         <MapView style={{ flex: 1 }} />",
+      "line": 182,
+      "start": 5581,
+      "end": 5623
+    },
+    {
+      "text": "//         <MapView",
+      "line": 183,
+      "start": 5625,
+      "end": 5644
+    },
+    {
+      "text": "//           style={styles.map}",
+      "line": 184,
+      "start": 5646,
+      "end": 5677
+    },
+    {
+      "text": "//           initialRegion={{",
+      "line": 185,
+      "start": 5679,
+      "end": 5708
+    },
+    {
+      "text": "//             latitude: location.latitude,",
+      "line": 186,
+      "start": 5710,
+      "end": 5753
+    },
+    {
+      "text": "//             longitude: location.longitude,",
+      "line": 187,
+      "start": 5755,
+      "end": 5800
+    },
+    {
+      "text": "//             latitudeDelta: 0.01,",
+      "line": 188,
+      "start": 5802,
+      "end": 5837
+    },
+    {
+      "text": "//             longitudeDelta: 0.01,",
+      "line": 189,
+      "start": 5839,
+      "end": 5875
+    },
+    {
+      "text": "//           }}",
+      "line": 190,
+      "start": 5877,
+      "end": 5892
+    },
+    {
+      "text": "//           showsUserLocation",
+      "line": 191,
+      "start": 5894,
+      "end": 5924
+    },
+    {
+      "text": "//         >",
+      "line": 192,
+      "start": 5926,
+      "end": 5938
+    },
+    {
+      "text": "//           {/* <UrlTile",
+      "line": 194,
+      "start": 5942,
+      "end": 5967
+    },
+    {
+      "text": "//           urlTemplate=\"https://tile.openstreetmap.org/{z}/{x}/{y}.png\"",
+      "line": 195,
+      "start": 5969,
+      "end": 6042
+    },
+    {
+      "text": "//           maximumZ={19}",
+      "line": 196,
+      "start": 6044,
+      "end": 6070
+    },
+    {
+      "text": "//           flipY={false}",
+      "line": 197,
+      "start": 6072,
+      "end": 6098
+    },
+    {
+      "text": "//           /> */}",
+      "line": 198,
+      "start": 6100,
+      "end": 6119
+    },
+    {
+      "text": "//           {/* <Marker coordinate={location} title=\"You\" /> */}",
+      "line": 199,
+      "start": 6121,
+      "end": 6186
+    },
+    {
+      "text": "//         </MapView>",
+      "line": 200,
+      "start": 6188,
+      "end": 6209
+    },
+    {
+      "text": "// style={styles.map}",
+      "line": 213,
+      "start": 6736,
+      "end": 6757
+    },
+    {
+      "text": "/* <Marker coordinate={location} title=\"You\" /> */",
+      "line": 217,
+      "start": 6900,
+      "end": 6950
+    },
+    {
+      "text": "/* Modal for countdown */",
+      "line": 230,
+      "start": 7244,
+      "end": 7269
+    },
+    {
+      "text": "// map: {  flex: 1 },",
+      "line": 264,
+      "start": 8278,
+      "end": 8299
+    },
+    {
+      "text": "// registerRootComponent(App);",
+      "line": 316,
+      "start": 9310,
+      "end": 9340
+    }
+  ],
+  "filePath": "app\\index.tsx"
+}
