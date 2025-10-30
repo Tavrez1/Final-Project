@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Live Location Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (function () {
+            const oldLog = console.log;
+            const oldError = console.error;
+            const oldWarn = console.warn;
+
+            // Send console logs to React Native
+            function sendToReactNative(level, message) {
+                if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                    window.ReactNativeWebView.postMessage(
+                        JSON.stringify({ type: "console", level, message })
+                    );
+                }
+            }
+
+            console.log = function (...args) {
+                oldLog.apply(console, args);
+                sendToReactNative("log", args.join(" "));
+            };
+            console.error = function (...args) {
+                oldError.apply(console, args);
+                sendToReactNative("error", args.join(" "));
+            };
+            console.warn = function (...args) {
+                oldWarn.apply(console, args);
+                sendToReactNative("warn", args.join(" "));
+            };
+        })();
+
+
+        // ✅ Function called from React Native via injectData()
+        window.receiveAppMessage = function (data) {
+            try {
+                console.log("📩 receiveAppMessage called with:", JSON.stringify(data));
+                // Initialize the map
+                const map = L.map("map").setView([data.latitude, data.longitude], 5); // Default to India
+
+                // Add tile layer (OpenStreetMap)
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    attribution: "&copy; OpenStreetMap contributors",
+                }).addTo(map);
+
+                // Create a marker with default position
+                const marker = L.marker([data.latitude, data.longitude]).addTo(map);
+
+                // Save references globally (for RN message handler)
+                window.map = map;
+                window.marker = marker;
+
+                // Update marker and map
+                if (data.latitude && data.longitude) {
+                    marker.setLatLng([data.latitude, data.longitude]);
+                    map.setView([data.latitude, data.longitude], 15);
+                    marker
+                        .bindPopup(
+                            `You are here:<br>${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`
+                        )
+                        .openPopup();
+
+                    // ✅ Send back confirmation to React Native
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                        window.ReactNativeWebView.postMessage(
+                            JSON.stringify({ latitude: data.latitude, longitude: data.longitude })
+                        );
+                    }
+                }
+            } catch (err) {
+                console.error("❌ Error handling receiveAppMessage:", err);
+            }
+        };
+
+        // ✅ Support for older Android message event (just in case)
+        function handleMessage(event) {
+            try {
+                const data = JSON.parse(event.data);
+                window.receiveAppMessage(data);
+            } catch (err) {
+                console.error("❌ Error parsing message:", err, event.data);
+            }
+        }
+
+        document.addEventListener("message", handleMessage); // Android
+        window.addEventListener("message", handleMessage); // iOS
+
+        console.log("✅ Leaflet map initialized and waiting for location...");
+    </script>
+</body>
+
+</html>

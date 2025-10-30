@@ -21,28 +21,49 @@
     <div id="map"></div>
 
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize the map
+        let map;
+        let marker;
 
         window.addEventListener('message', (event) => {
-            const loc = JSON.parse(event.data);
-            console.log("loc" + loc.latitude);
-            var map = L.map('map').setView([20.5937, 78.9629], 6); // Centered on India
+            console.log("HTML PAGE LOG: EVENT TRIGGERED")
+            try {
+                const loc = JSON.parse(event.data);
+                console.log("HTML PAGE LOG: 📍 Received location:", loc);
 
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+                // Check if values are valid
+                if (!loc.latitude || !loc.longitude) {
+                    console.warn("HTML PAGE LOG: ⚠️ Invalid location data:", loc);
+                    return;
+                }
 
-            // Add a marker
-            var marker = L.marker([28.6139, 77.2090]).addTo(map); // New Delhi
+                // Create the map once
+                if (!map) {
+                    console.log("HTML PAGE LOG: 🗺️ Initializing map...");
+                    map = L.map('map').setView([loc.latitude, loc.longitude], 10);
 
-            // Add a popup to the marker
-            marker.bindPopup("<b>Hello!</b><br>This is New Delhi.").openPopup();
-        })
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        // attribution: '&copy; OpenStreetMap contributors'
+                    }).addTo(map);
+                }
+
+                // If marker already exists, move it; otherwise, create one
+                if (marker) {
+                    marker.setLatLng([loc.latitude, loc.longitude]);
+                } else {
+                    marker = L.marker([loc.latitude, loc.longitude]).addTo(map);
+                    marker.bindPopup(`<b>Lat:</b> ${loc.latitude}<br><b>Lng:</b> ${loc.longitude}`).openPopup();
+                }
+
+                // Center map on the marker
+                map.setView([loc.latitude, loc.longitude], 12);
+            } catch (err) {
+                console.error("❌ Error parsing message:", err);
+            }
+        });
     </script>
+
 </body>
 
 </html>

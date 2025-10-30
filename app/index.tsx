@@ -1,60 +1,15 @@
-import * as Device from 'expo-device';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
+// import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Button, Modal, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
-import { WebView } from "react-native-webview";
+import { WebView } from 'react-native-webview';
 
 import { router } from 'expo-router';
-import { startBackgroundLocation, stopBackgroundLocation } from "../services/locationService";
-import "../services/tasks";
 
 import { Menu } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
-
-async function registerForPushNotificationsAsync() {
-  let token;
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-    });
-  }
-
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log(token);
-
-  } else {
-    alert('Must use physical device for Push Notifications');
-    console.log('Must use physical device for Push Notifications');
-
-  }
-
-  return token;
-}
 
  export default function Index() {
 
@@ -66,102 +21,70 @@ async function registerForPushNotificationsAsync() {
   const webviewRef = useRef<WebView>(null);
   const webviewReady = useRef(false);
 
-  const [expoPushToken, setExpoPushToken] = useState(''); 
+//   const [expoPushToken, setExpoPushToken] = useState(''); 
 
-  useEffect(() => {
-    registerForPushNotificationsAsync().then(token => {
-        setExpoPushToken(token);
-        console.log(expoPushToken);
-    });
+//   useEffect(() => {
+//     registerForPushNotificationsAsync().then(token => {
+//         setExpoPushToken(token);
+//         console.log(expoPushToken);
+//     });
 
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log("Notification received:", notification);
-    });
+//     const subscription = Notifications.addNotificationReceivedListener(notification => {
+//       console.log("Notification received:", notification);
+//     });
 
-    return () => subscription.remove();
-  }, []);
+//     return () => subscription.remove();
+//   }, []);
 
-  useEffect(() => {
-    AppState.addEventListener("change", (nextState) => {
-    if (nextState === "active") {
-        startBackgroundLocation();
-    }
-    });
+//   useEffect(() => {
+//     AppState.addEventListener("change", (nextState) => {
+//     if (nextState === "active") {
+//         startBackgroundLocation();
+//     }
+//     });
       
-    return () => {
-      stopBackgroundLocation();
-    };
-  }, []);
+//     return () => {
+//       stopBackgroundLocation();
+//     };
+//   }, []);
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      console.log("hello");
 
       if (status !== 'granted') {
-        alert('Permission to access location was denied');
+        alert('PAGE LOGS : Permission to access location was denied');
         return;
       }
 
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
-      console.log("location",loc);
+      console.log("PAGE LOGS : ForgroundLocationServiceLocation : ",loc);
 
     })();
   }, []);
-  useEffect(() => {
-    if (location && webviewReady.current) {
-      webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
-      console.log("update Location")
-      console.log(typeof location.latitude, typeof location.longitude);
-
-    }
-    else console.log("not enough data in location",location);
-
-  }, [location,webviewReady]);
-
-  const triggerSOS = async () => {
-    try {
-
-      alert("Alert Sent! Your location has been shared.");
-
-    } catch (error) {
-      console.log(error);
-      alert("Error: Could not send alert.");
-    }
-  };
-
-  const sendSOS = () => {
-    cancelRef.current = false;
-    Vibration.vibrate(500);
-    setCountdown(7);
-    setModalVisible(true);
-
-    timerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          setModalVisible(false);
-          if (!cancelRef.current) {
-            triggerSOS();
+     
+      const INJECTED_JAVASCRIPT = `
+      (function() {
+        window.receiveAppMessage = function(data) {
+          // Process the data received from the native app
+          console.log(JSON.stringify(data));
+          // You can update the DOM, call other functions, etc.
+          window.appData = data; // store it globally
+        };
+      })();
+    `;
+     
+     const injectData = (myData: { latitude: number; longitude: number }) => {
+        const script = `
+          if (window.receiveAppMessage) {
+            console.log("[Native] " + "receive app message is initialized in window")
+            window.receiveAppMessage(${JSON.stringify(myData)});
           }
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const cancelSOS = () => {
-    cancelRef.current = true;
-    clearInterval(timerRef.current);
-    setModalVisible(false);
-  };
-
-  const confirmSOS = () => {
-    clearInterval(timerRef.current);
-    setModalVisible(false);
-    triggerSOS();
-  };
+          true; // Required for injectJavaScript to work correctly
+        `;
+        webviewRef.current.injectJavaScript(script);
+      };
 
      return (
       <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
@@ -176,23 +99,33 @@ async function registerForPushNotificationsAsync() {
 
         <WebView
         ref={webviewRef}
-        // source={{ html: leafletHTML }}
-        source={require('../assets/html_pages/index.html')}
+        source={require('../assets/html_pages/index2.html')}
         javaScriptEnabled={true}
+        injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT} // Initial injection for setting up the receiver
         originWhitelist={["*"]}
-        onLoad={() => {
-            webviewReady.current = true;
-            if (location) {
-                webviewRef.current?.postMessage(JSON.stringify({latitude:location.latitude,longitude:location.longitude}));
-            }
-            console.log("update Location",JSON.stringify({latitude:location.latitude,longitude:location.longitude}))
-        }}
-
+        onLoadEnd={() => injectData({...location})}
+        // onLoadEnd={() => injectData({latitude: 0, longitude: 0})}
         onMessage={(event) => {
-          console.log("Message from Leaflt:", event.nativeEvent.data);
-        }}>
-        </WebView>
+            try {
+            const data = JSON.parse(event.nativeEvent.data);
 
+            if (data.type === 'console') {
+                // Log HTML console messages in your Metro/Expo console
+                if (data.level === 'error') console.error('[WebView]', data.message);
+                else if (data.level === 'warn') console.warn('[WebView]', data.message);
+                else console.log('[WebView]', data.message);
+            } else {
+                // Handle other app messages (like location updates)
+                console.log('[WebView message]', data);
+            }
+            } catch (e) {
+            console.log('Raw WebView message:', event.nativeEvent.data);
+            }
+        }}
+                             
+                            
+        // onLoadEnd={injectData}
+        />
       ) : (
         <Text style={styles.loading}>Loading location...</Text>
       )}
@@ -205,8 +138,7 @@ async function registerForPushNotificationsAsync() {
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
 
-      {}
-      <Modal
+      {/* <Modal
         visible={modalVisible}
         transparent
         animationType="fade"
@@ -224,7 +156,7 @@ async function registerForPushNotificationsAsync() {
             </View>
           </View>
         </View>
-      </Modal>
+      </Modal> */}
     </View>
       </SafeAreaView>
   );
