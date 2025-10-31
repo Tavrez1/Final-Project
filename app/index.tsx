@@ -6,7 +6,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { WebView } from 'react-native-webview';
 
-import { router } from 'expo-router';
 
 import { Menu } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  export default function Index() {
 
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
+  const [otherLocation, setOtherLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(7);
   const cancelRef = useRef(false);
@@ -21,32 +21,45 @@ import { SafeAreaView } from 'react-native-safe-area-context';
   const webviewRef = useRef<WebView>(null);
   const webviewReady = useRef(false);
 
-//   const [expoPushToken, setExpoPushToken] = useState(''); 
+    useEffect(() => {
+        let isActive = true; // to stop after unmount
+        let isRequestInProgress = false; // lock to prevent overlap
 
-//   useEffect(() => {
-//     registerForPushNotificationsAsync().then(token => {
-//         setExpoPushToken(token);
-//         console.log(expoPushToken);
-//     });
+        const pollServer = async () => {
+            if (isRequestInProgress || !location) return;
 
-//     const subscription = Notifications.addNotificationReceivedListener(notification => {
-//       console.log("Notification received:", notification);
-//     });
+            isRequestInProgress = true;
+            try {
+            const res = await fetch("http://10.180.176.92:5000/location/getLocation", {
+                method: "GET",
+                headers: {
+                "Content-Type": "application/json",
+                },
+            });
 
-//     return () => subscription.remove();
-//   }, []);
+            const data = await res.json(); // or await res.text() if backend returns text
+            if (isActive) setOtherLocation(data);
+            console.log("✅ Location updated:", data);
+            } catch (err) {
+            console.error("❌ Error sending location:", err);
+            } finally {
+            isRequestInProgress = false;
+            // schedule the next poll after completion
+            if (isActive) {
+                setTimeout(pollServer, 10000); // ⏳ 2 seconds interval
+            }
+            }
+        };
 
-//   useEffect(() => {
-//     AppState.addEventListener("change", (nextState) => {
-//     if (nextState === "active") {
-//         startBackgroundLocation();
-//     }
-//     });
-      
-//     return () => {
-//       stopBackgroundLocation();
-//     };
-//   }, []);
+        // Start first poll
+        pollServer();
+
+        // Cleanup when component unmounts
+        return () => {
+            isActive = false;
+        };
+    }, [location]);
+
 
   useEffect(() => {
     (async () => {
@@ -75,7 +88,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
       })();
     `;
      
-     const injectData = (myData: { latitude: number; longitude: number }) => {
+     const injectData = (myData: any) => {
         const script = `
           if (window.receiveAppMessage) {
             console.log("[Native] " + "receive app message is initialized in window")
@@ -86,6 +99,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
         webviewRef.current.injectJavaScript(script);
       };
 
+    useEffect(() => {
+        if (webviewRef.current && location && otherLocation) {
+            // Combine both into a single object
+            const dataToSend = { mylocation: location, otherLocation: otherLocation };
+            injectData(dataToSend);
+            console.log("📡 Injected updated data:", dataToSend);
+        }
+    }, [location, otherLocation]);
+
+     
      return (
       <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
              
@@ -103,7 +126,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
         javaScriptEnabled={true}
         injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT} // Initial injection for setting up the receiver
         originWhitelist={["*"]}
-        onLoadEnd={() => injectData({...location})}
+        onLoadEnd={() => injectData({mylocation: location, otherLocation: otherLocation})}
         // onLoadEnd={() => injectData({latitude: 0, longitude: 0})}
         onMessage={(event) => {
             try {

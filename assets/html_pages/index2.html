@@ -29,12 +29,12 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Redirect console logs to React Native (optional)
         (function () {
             const oldLog = console.log;
             const oldError = console.error;
             const oldWarn = console.warn;
 
-            // Send console logs to React Native
             function sendToReactNative(level, message) {
                 if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
                     window.ReactNativeWebView.postMessage(
@@ -43,63 +43,123 @@
                 }
             }
 
-            console.log = function (...args) {
-                oldLog.apply(console, args);
-                sendToReactNative("log", args.join(" "));
-            };
-            console.error = function (...args) {
-                oldError.apply(console, args);
-                sendToReactNative("error", args.join(" "));
-            };
-            console.warn = function (...args) {
-                oldWarn.apply(console, args);
-                sendToReactNative("warn", args.join(" "));
-            };
+            console.log = (...args) => { oldLog(...args); sendToReactNative("log", args.join(" ")); };
+            console.error = (...args) => { oldError(...args); sendToReactNative("error", args.join(" ")); };
+            console.warn = (...args) => { oldWarn(...args); sendToReactNative("warn", args.join(" ")); };
         })();
 
+        // 🌍 Global references
+        let map = null;
+        let myMarker = null;
+        let otherMarker = null;
+        let pendingData = null;
 
-        // ✅ Function called from React Native via injectData()
-        window.receiveAppMessage = function (data) {
-            try {
-                console.log("📩 receiveAppMessage called with:", JSON.stringify(data));
-                // Initialize the map
-                const map = L.map("map").setView([data.latitude, data.longitude], 5); // Default to India
+        function initializeMap(lat = 20.5937, lon = 78.9629) {
+            console.log("🗺️ Initializing map...");
+            map = L.map("map").setView([lat, lon], 15);
 
-                // Add tile layer (OpenStreetMap)
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                    attribution: "&copy; OpenStreetMap contributors",
-                }).addTo(map);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: "&copy; OpenStreetMap contributors",
+            }).addTo(map);
 
-                // Create a marker with default position
-                const marker = L.marker([data.latitude, data.longitude]).addTo(map);
+            // 🧭 Primary marker (your location)
+            myMarker = L.marker([lat, lon]).addTo(map);
+            myMarker.bindPopup(`Loading your location...`, { autoClose: false, closeOnClick: false }).openPopup();
 
-                // Save references globally (for RN message handler)
-                window.map = map;
-                window.marker = marker;
+            // 🧍‍♀️ Secondary marker (other location) – created later dynamically
+            otherMarker = null;
 
-                // Update marker and map
-                if (data.latitude && data.longitude) {
-                    marker.setLatLng([data.latitude, data.longitude]);
-                    map.setView([data.latitude, data.longitude], 15);
-                    marker
+            // Apply any queued update once map is ready
+            if (pendingData) {
+                console.log("⚡ Applying queued update...");
+                updateMap(pendingData);
+                pendingData = null;
+            }
+        }
+
+        function updateMap(data) {
+            if (!map || !myMarker) {
+                console.log("🕐 Map not ready yet. Queuing update...");
+                pendingData = data;
+                return;
+            }
+
+            const { mylocation, otherLocation } = data || {};
+            if (!mylocation?.latitude || !mylocation?.longitude) {
+                console.warn("⚠️ Invalid mylocation:", mylocation);
+                return;
+            }
+
+            const { latitude, longitude } = mylocation;
+            myMarker.setLatLng([latitude, longitude]);
+            myMarker.setPopupContent(
+                `You are here:<br>${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+            );
+
+            // 🟢 Handle Other Location marker
+            if (otherLocation?.latitude && otherLocation?.longitude && otherLocation?.latitude!== latitude && otherLocation?.longitude !== longitude) {
+                const { latitude: oLat, longitude: oLon } = otherLocation;
+
+                if (!otherMarker) {
+                    console.log("➕ Creating otherLocation marker...");
+                    otherMarker = L.marker([oLat, oLon], {
+                        //    icon: L.icon({
+                        //        iconUrl:
+                        //            "https://cdn-icons-png.flaticon.com/512/64/64113.png", // 🧭 You can replace this icon
+                        //        iconSize: [32, 32],
+                        //        iconAnchor: [16, 32],
+                        //    }),
+                    }).addTo(map);
+                    otherMarker
                         .bindPopup(
-                            `You are here:<br>${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`
+                            `Other person:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`,
+                            { autoClose: false, closeOnClick: false }
                         )
                         .openPopup();
-
-                    // ✅ Send back confirmation to React Native
-                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                        window.ReactNativeWebView.postMessage(
-                            JSON.stringify({ latitude: data.latitude, longitude: data.longitude })
-                        );
-                    }
                 }
+
+                otherMarker.setPopupContent(
+                    `Other person:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`
+                );
+
+                otherMarker.setLatLng([oLat, oLon]);
+
+            } else {
+                // 🚫 If otherLocation invalid or missing, remove its marker
+                if (otherMarker) {
+                    console.log("➖ Removing otherLocation marker...");
+                    map.removeLayer(otherMarker);
+                    otherMarker = null;
+                }
+            }
+
+            // Optional: fit both points in view
+            if (myMarker && otherMarker) {
+                const bounds = L.latLngBounds([
+                    myMarker.getLatLng(),
+                    otherMarker.getLatLng(),
+                ]);
+                map.fitBounds(bounds, { padding: [100, 100] });
+            }
+
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(
+                    JSON.stringify({ updated: true, latitude, longitude })
+                );
+            }
+        }
+
+        // ✅ Called repeatedly from React Native
+        window.receiveAppMessage = function (data) {
+            try {
+                if (!data) return;
+                updateMap(data);
             } catch (err) {
-                console.error("❌ Error handling receiveAppMessage:", err);
+                console.error("❌ Error in receiveAppMessage:", err);
             }
         };
 
-        // ✅ Support for older Android message event (just in case)
+        // Android/iOS compatibility
         function handleMessage(event) {
             try {
                 const data = JSON.parse(event.data);
@@ -109,11 +169,15 @@
             }
         }
 
-        document.addEventListener("message", handleMessage); // Android
-        window.addEventListener("message", handleMessage); // iOS
+        document.addEventListener("message", handleMessage);
+        window.addEventListener("message", handleMessage);
 
-        console.log("✅ Leaflet map initialized and waiting for location...");
+        document.addEventListener("DOMContentLoaded", () => {
+            initializeMap();
+            console.log("✅ Map initialized and waiting for updates...");
+        });
     </script>
+
 </body>
 
 </html>
