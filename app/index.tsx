@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  export default function Index() {
 
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
-  const [otherLocation, setOtherLocation] = useState<Location.LocationObjectCoords | null>(null);
+  const [otherLocations, setOtherLocations] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(7);
   const cancelRef = useRef(false);
@@ -38,7 +38,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
             });
 
             const data = await res.json(); // or await res.text() if backend returns text
-            if (isActive) setOtherLocation(data);
+            if (isActive) setOtherLocations(data);
             console.log("✅ Location updated:", data);
             } catch (err) {
             console.error("❌ Error sending location:", err);
@@ -59,6 +59,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
             isActive = false;
         };
     }, [location]);
+     
+     useEffect(() => {
+        console.log("✅ otherLocations updated:", otherLocations);
+    }, [otherLocations]);
 
 
   useEffect(() => {
@@ -100,13 +104,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
       };
 
     useEffect(() => {
-        if (webviewRef.current && location && otherLocation) {
+        if (webviewRef.current && location && otherLocations) {
             // Combine both into a single object
-            const dataToSend = { mylocation: location, otherLocation: otherLocation };
+            const dataToSend = { mylocation: location, otherLocations: otherLocations };
             injectData(dataToSend);
             console.log("📡 Injected updated data:", dataToSend);
         }
-    }, [location, otherLocation]);
+    }, [location, otherLocations]);
 
      
      return (
@@ -126,7 +130,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
         javaScriptEnabled={true}
         injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT} // Initial injection for setting up the receiver
         originWhitelist={["*"]}
-        onLoadEnd={() => injectData({mylocation: location, otherLocation: otherLocation})}
+        onLoadEnd={() => injectData({mylocation: location, otherLocations: otherLocations})}
         // onLoadEnd={() => injectData({latitude: 0, longitude: 0})}
         onMessage={(event) => {
             try {

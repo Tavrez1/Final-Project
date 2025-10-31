@@ -84,7 +84,7 @@
                 return;
             }
 
-            const { mylocation, otherLocation } = data || {};
+            const { mylocation, otherLocations } = data || {};
             if (!mylocation?.latitude || !mylocation?.longitude) {
                 console.warn("⚠️ Invalid mylocation:", mylocation);
                 return;
@@ -97,50 +97,75 @@
             );
 
             // 🟢 Handle Other Location marker
-            if (otherLocation?.latitude && otherLocation?.longitude && otherLocation?.latitude!== latitude && otherLocation?.longitude !== longitude) {
-                const { latitude: oLat, longitude: oLon } = otherLocation;
+            // Store multiple markers
+            let otherMarkers = {}; // key = index or unique ID
 
-                if (!otherMarker) {
-                    console.log("➕ Creating otherLocation marker...");
-                    otherMarker = L.marker([oLat, oLon], {
-                        //    icon: L.icon({
-                        //        iconUrl:
-                        //            "https://cdn-icons-png.flaticon.com/512/64/64113.png", // 🧭 You can replace this icon
-                        //        iconSize: [32, 32],
-                        //        iconAnchor: [16, 32],
-                        //    }),
-                    }).addTo(map);
-                    otherMarker
-                        .bindPopup(
-                            `Other person:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`,
+            // 🟢 Handle Other Location markers (array)
+            if (Array.isArray(otherLocations) && otherLocations.length > 0) {
+
+                // Loop through each location in the array
+                otherLocations.forEach((loc, index) => {
+                    if (!loc?.latitude || !loc?.longitude) return;
+
+                    const { latitude: oLat, longitude: oLon } = loc;
+
+                    // If marker for this index does not exist, create it
+                    if (!otherMarkers[index]) {
+                        console.log("➕ Creating marker for otherPerson:", index);
+
+                        const marker = L.marker([oLat, oLon]).addTo(map);
+
+                        marker.bindPopup(
+                            `Person ${index + 1}:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`,
                             { autoClose: false, closeOnClick: false }
-                        )
-                        .openPopup();
-                }
+                        ).openPopup();
 
-                otherMarker.setPopupContent(
-                    `Other person:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`
-                );
+                        otherMarkers[index] = marker;
+                    }
 
-                otherMarker.setLatLng([oLat, oLon]);
+                    // Update popup + position
+                    otherMarkers[index].setPopupContent(
+                        `Person ${index + 1}:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`
+                    );
+
+                    otherMarkers[index].setLatLng([oLat, oLon]);
+                });
+
+                // 🧹 Remove markers that no longer exist in the array
+                Object.keys(otherMarkers).forEach((key) => {
+                    if (!otherLocations[key]) {
+                        console.log("➖ Removing old marker:", key);
+                        map.removeLayer(otherMarkers[key]);
+                        delete otherMarkers[key];
+                    }
+                });
 
             } else {
-                // 🚫 If otherLocation invalid or missing, remove its marker
-                if (otherMarker) {
-                    console.log("➖ Removing otherLocation marker...");
-                    map.removeLayer(otherMarker);
-                    otherMarker = null;
+                // 🚫 No locations → remove all markers
+                Object.values(otherMarkers).forEach(marker => map.removeLayer(marker));
+                otherMarkers = {};
+            }
+
+
+            // Optional: fit both points in view
+            // Fit map to all markers (optional)
+            if (myMarker || Object.keys(otherMarkers).length > 0) {
+                const allPoints = [];
+
+                if (myMarker) {
+                    allPoints.push(myMarker.getLatLng());
+                }
+
+                Object.values(otherMarkers).forEach(marker => {
+                    allPoints.push(marker.getLatLng());
+                });
+
+                if (allPoints.length > 1) {
+                    const bounds = L.latLngBounds(allPoints);
+                    map.fitBounds(bounds, { padding: [100, 100] });
                 }
             }
 
-            // Optional: fit both points in view
-            if (myMarker && otherMarker) {
-                const bounds = L.latLngBounds([
-                    myMarker.getLatLng(),
-                    otherMarker.getLatLng(),
-                ]);
-                map.fitBounds(bounds, { padding: [100, 100] });
-            }
 
             if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
                 window.ReactNativeWebView.postMessage(
@@ -154,6 +179,7 @@
             try {
                 if (!data) return;
                 updateMap(data);
+                console.log("✅data :" +  JSON.stringify(data.otherLocations))
             } catch (err) {
                 console.error("❌ Error in receiveAppMessage:", err);
             }
