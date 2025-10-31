@@ -133,7 +133,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
           <TouchableOpacity style={styles.sosButton}
             //   onPress={sendSOS}
-                onPress={() => router.push("/contacts")}
+                onPress={() => {
+                    fetch("http://10.180.176.92:5000/location/addlocation", {
+                        method: 'POST',
+                        headers: {
+                        'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ ...location }),
+                    })
+                }}
+
           >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
