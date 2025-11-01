@@ -1,5 +1,5 @@
 import { ScrollView } from "react-native";
-import ContactCard from "../components/ContactCard";
+import ContactCard from "../../components/ContactCard";
 
 
 export default function Contacts() {

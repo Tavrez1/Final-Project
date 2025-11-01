@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
             isRequestInProgress = true;
             try {
-            const res = await fetch("http://10.180.176.92:5000/location/getLocation", {
+            const res = await fetch(`${process.env.EXPO_PUBLIC_GET_OTHER_LOCATIONS}`, {
                 method: "GET",
                 headers: {
                 "Content-Type": "application/json",
@@ -65,21 +65,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
     }, [otherLocations]);
 
 
-  useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-
+useEffect(() => {
+  (async () => {
+    try {
+      // ✅ Ask for permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        alert('PAGE LOGS : Permission to access location was denied');
+        alert('Permission to access location was denied');
         return;
       }
 
-      let loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc.coords);
-      console.log("PAGE LOGS : ForgroundLocationServiceLocation : ",loc);
+      // ✅ Check if GPS / Location services are enabled (Android important)
+      const enabled = await Location.hasServicesEnabledAsync();
+      if (!enabled) {
+        alert('⚠️ Location services are turned OFF. Please enable GPS.');
+        return;
+      }
 
-    })();
-  }, []);
+      // ✅ Now get the current position safely
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      setLocation(loc.coords);
+      console.log("✅ ForegroundLocationServiceLocation:", loc);
+
+    } catch (error) {
+      console.log("❌ Location error:", error);
+    }
+  })();
+}, []);
+
      
       const INJECTED_JAVASCRIPT = `
       (function() {
@@ -114,7 +130,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
      
      return (
-      <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
+    //   <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
              
       <View style={styles.container}>
           
@@ -161,7 +177,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
           <TouchableOpacity style={styles.sosButton}
             //   onPress={sendSOS}
                 onPress={() => {
-                    fetch("http://10.180.176.92:5000/location/addlocation", {
+                    fetch(`${process.env.EXPO_PUBLIC_POST_OTHER_LOCATIONS}`, {
                         method: 'POST',
                         headers: {
                         'Content-Type': 'application/json',
@@ -194,7 +210,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
         </View>
       </Modal> */}
     </View>
-      </SafeAreaView>
+    //   </SafeAreaView>
   );
 }
 

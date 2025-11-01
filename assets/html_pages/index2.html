@@ -53,13 +53,14 @@
         let myMarker = null;
         let otherMarker = null;
         let pendingData = null;
+        let otherMarkers = {};
 
-        function initializeMap(lat = 20.5937, lon = 78.9629) {
+        function initializeMap(lat = 0, lon = 0) {
             console.log("🗺️ Initializing map...");
-            map = L.map("map").setView([lat, lon], 15);
+            map = L.map("map", { attributionControl: false }).setView([0, 0], 15);
 
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                attribution: "&copy; OpenStreetMap contributors",
+
             }).addTo(map);
 
             // 🧭 Primary marker (your location)
@@ -98,38 +99,38 @@
 
             // 🟢 Handle Other Location marker
             // Store multiple markers
-            let otherMarkers = {}; // key = index or unique ID
+
 
             // 🟢 Handle Other Location markers (array)
             if (Array.isArray(otherLocations) && otherLocations.length > 0) {
 
                 // Loop through each location in the array
                 otherLocations.forEach((loc, index) => {
-                    if (!loc?.latitude || !loc?.longitude) return;
+                    if (!loc?.latitude || !loc?.longitude ||
+                        (loc.latitude === latitude && loc.longitude === longitude)) return;
 
                     const { latitude: oLat, longitude: oLon } = loc;
 
-                    // If marker for this index does not exist, create it
+                    // ✅ Create only if NOT existing
                     if (!otherMarkers[index]) {
                         console.log("➕ Creating marker for otherPerson:", index);
 
-                        const marker = L.marker([oLat, oLon]).addTo(map);
+                        otherMarkers[index] = L.marker([oLat, oLon]).addTo(map);
 
-                        marker.bindPopup(
+                        otherMarkers[index].bindPopup(
                             `Person ${index + 1}:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`,
-                            { autoClose: false, closeOnClick: false }
+                            { autoClose: true, closeOnClick: false }
                         ).openPopup();
-
-                        otherMarkers[index] = marker;
                     }
 
-                    // Update popup + position
+                    // ✅ Update marker position & popup
+                    otherMarkers[index].setLatLng([oLat, oLon]);
+
                     otherMarkers[index].setPopupContent(
                         `Person ${index + 1}:<br>${oLat.toFixed(5)}, ${oLon.toFixed(5)}`
                     );
-
-                    otherMarkers[index].setLatLng([oLat, oLon]);
                 });
+
 
                 // 🧹 Remove markers that no longer exist in the array
                 Object.keys(otherMarkers).forEach((key) => {
@@ -151,7 +152,6 @@
             // Fit map to all markers (optional)
             if (myMarker || Object.keys(otherMarkers).length > 0) {
                 const allPoints = [];
-
                 if (myMarker) {
                     allPoints.push(myMarker.getLatLng());
                 }
@@ -160,7 +160,7 @@
                     allPoints.push(marker.getLatLng());
                 });
 
-                if (allPoints.length > 1) {
+                if (allPoints.length >= 1) {
                     const bounds = L.latLngBounds(allPoints);
                     map.fitBounds(bounds, { padding: [100, 100] });
                 }
@@ -179,7 +179,7 @@
             try {
                 if (!data) return;
                 updateMap(data);
-                console.log("✅data :" +  JSON.stringify(data.otherLocations))
+
             } catch (err) {
                 console.error("❌ Error in receiveAppMessage:", err);
             }
@@ -200,6 +200,7 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             initializeMap();
+            console.log("✅data :" + JSON.stringify(data.mylocation))
             console.log("✅ Map initialized and waiting for updates...");
         });
     </script>
