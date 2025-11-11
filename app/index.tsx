@@ -1,218 +1,219 @@
-import * as Location from 'expo-location';
 // import * as Notifications from 'expo-notifications';
-import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { StyleSheet } from 'react-native';
 
 
-import { WebView } from 'react-native-webview';
 
 
-import { Menu } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Redirect } from 'expo-router';
 
- export default function Index() {
+export default function Index() {
+  return <Redirect href="/Screen/login.page" />;
+}
 
-  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
-  const [otherLocations, setOtherLocations] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [countdown, setCountdown] = useState(7);
-  const cancelRef = useRef(false);
-  const timerRef = useRef(null);
-  const webviewRef = useRef<WebView>(null);
-  const webviewReady = useRef(false);
+//  export default function Index() {
 
-    useEffect(() => {
-        let isActive = true; // to stop after unmount
-        let isRequestInProgress = false; // lock to prevent overlap
+//   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
+//   const [otherLocations, setOtherLocations] = useState([]);
+//   const [modalVisible, setModalVisible] = useState(false);
+//   const [countdown, setCountdown] = useState(7);
+//   const cancelRef = useRef(false);
+//   const timerRef = useRef(null);
+//   const webviewRef = useRef<WebView>(null);
+//   const webviewReady = useRef(false);
 
-        const pollServer = async () => {
-            if (isRequestInProgress || !location) return;
+//     useEffect(() => {
+//         let isActive = true; // to stop after unmount
+//         let isRequestInProgress = false; // lock to prevent overlap
 
-            isRequestInProgress = true;
-            try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_GET_OTHER_LOCATIONS}`, {
-                method: "GET",
-                headers: {
-                "Content-Type": "application/json",
-                },
-            });
+//         const pollServer = async () => {
+//             if (isRequestInProgress || !location) return;
 
-            const data = await res.json(); // or await res.text() if backend returns text
-            if (isActive) setOtherLocations(data);
-            console.log("✅ Location updated:", data);
-            } catch (err) {
-            console.error("❌ Error sending location:", err);
-            } finally {
-            isRequestInProgress = false;
-            // schedule the next poll after completion
-            if (isActive) {
-                setTimeout(pollServer, 10000); // ⏳ 2 seconds interval
-            }
-            }
-        };
+//             isRequestInProgress = true;
+//             try {
+//             const res = await fetch(`${process.env.EXPO_PUBLIC_GET_OTHER_LOCATIONS}`, {
+//                 method: "GET",
+//                 headers: {
+//                 "Content-Type": "application/json",
+//                 },
+//             });
 
-        // Start first poll
-        pollServer();
+//             const data = await res.json(); // or await res.text() if backend returns text
+//             if (isActive) setOtherLocations(data);
+//             console.log("✅ Location updated:", data);
+//             } catch (err) {
+//             console.error("❌ Error sending location:", err);
+//             } finally {
+//             isRequestInProgress = false;
+//             // schedule the next poll after completion
+//             if (isActive) {
+//                 setTimeout(pollServer, 10000); // ⏳ 2 seconds interval
+//             }
+//             }
+//         };
 
-        // Cleanup when component unmounts
-        return () => {
-            isActive = false;
-        };
-    }, [location]);
+//         // Start first poll
+//         pollServer();
+
+//         // Cleanup when component unmounts
+//         return () => {
+//             isActive = false;
+//         };
+//     }, [location]);
      
-     useEffect(() => {
-        console.log("✅ otherLocations updated:", otherLocations);
-    }, [otherLocations]);
+//      useEffect(() => {
+//         console.log("✅ otherLocations updated:", otherLocations);
+//     }, [otherLocations]);
 
 
-useEffect(() => {
-  (async () => {
-    try {
-      // ✅ Ask for permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permission to access location was denied');
-        return;
-      }
+// useEffect(() => {
+//   (async () => {
+//     try {
+//       // ✅ Ask for permission
+//       const { status } = await Location.requestForegroundPermissionsAsync();
+//       if (status !== 'granted') {
+//         alert('Permission to access location was denied');
+//         return;
+//       }
 
-      // ✅ Check if GPS / Location services are enabled (Android important)
-      const enabled = await Location.hasServicesEnabledAsync();
-      if (!enabled) {
-        alert('⚠️ Location services are turned OFF. Please enable GPS.');
-        return;
-      }
+//       // ✅ Check if GPS / Location services are enabled (Android important)
+//       const enabled = await Location.hasServicesEnabledAsync();
+//       if (!enabled) {
+//         alert('⚠️ Location services are turned OFF. Please enable GPS.');
+//         return;
+//       }
 
-      // ✅ Now get the current position safely
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+//       // ✅ Now get the current position safely
+//       const loc = await Location.getCurrentPositionAsync({
+//         accuracy: Location.Accuracy.High,
+//       });
 
-      setLocation(loc.coords);
-      console.log("✅ ForegroundLocationServiceLocation:", loc);
+//       setLocation(loc.coords);
+//       console.log("✅ ForegroundLocationServiceLocation:", loc);
 
-    } catch (error) {
-      console.log("❌ Location error:", error);
-    }
-  })();
-}, []);
-
-     
-      const INJECTED_JAVASCRIPT = `
-      (function() {
-        window.receiveAppMessage = function(data) {
-          // Process the data received from the native app
-          console.log(JSON.stringify(data));
-          // You can update the DOM, call other functions, etc.
-          window.appData = data; // store it globally
-        };
-      })();
-    `;
-     
-     const injectData = (myData: any) => {
-        const script = `
-          if (window.receiveAppMessage) {
-            console.log("[Native] " + "receive app message is initialized in window")
-            window.receiveAppMessage(${JSON.stringify(myData)});
-          }
-          true; // Required for injectJavaScript to work correctly
-        `;
-        webviewRef.current.injectJavaScript(script);
-      };
-
-    useEffect(() => {
-        if (webviewRef.current && location && otherLocations) {
-            // Combine both into a single object
-            const dataToSend = { mylocation: location, otherLocations: otherLocations };
-            injectData(dataToSend);
-            console.log("📡 Injected updated data:", dataToSend);
-        }
-    }, [location, otherLocations]);
+//     } catch (error) {
+//       console.log("❌ Location error:", error);
+//     }
+//   })();
+// }, []);
 
      
-     return (
-    //   <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
+//       const INJECTED_JAVASCRIPT = `
+//       (function() {
+//         window.receiveAppMessage = function(data) {
+//           // Process the data received from the native app
+//           console.log(JSON.stringify(data));
+//           // You can update the DOM, call other functions, etc.
+//           window.appData = data; // store it globally
+//         };
+//       })();
+//     `;
+     
+//      const injectData = (myData: any) => {
+//         const script = `
+//           if (window.receiveAppMessage) {
+//             console.log("[Native] " + "receive app message is initialized in window")
+//             window.receiveAppMessage(${JSON.stringify(myData)});
+//           }
+//           true; // Required for injectJavaScript to work correctly
+//         `;
+//         webviewRef.current.injectJavaScript(script);
+//       };
+
+//     useEffect(() => {
+//         if (webviewRef.current && location && otherLocations) {
+//             // Combine both into a single object
+//             const dataToSend = { mylocation: location, otherLocations: otherLocations };
+//             injectData(dataToSend);
+//             console.log("📡 Injected updated data:", dataToSend);
+//         }
+//     }, [location, otherLocations]);
+
+     
+//      return (
+//     //   <SafeAreaView style={{...styles.container, borderWidth: 0, borderColor: 'white'}}>
              
-      <View style={styles.container}>
+//       <View style={styles.container}>
           
-          <View style={{ margin:25, width: 40, height: 40, position: 'absolute', backgroundColor: 'white', zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 10}}>
-              <Menu size={ 20} />
-          </View>
-      <View style={styles.mapContainer}> 
-      {location ? (
+//           <View style={{ margin:25, width: 40, height: 40, position: 'absolute', backgroundColor: 'white', zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 10, elevation: 15}}>
+//               <Menu size={ 20} />
+//           </View>
+//       <View style={styles.mapContainer}> 
+//       {location ? (
 
-        <WebView
-        ref={webviewRef}
-        source={require('../assets/html_pages/index2.html')}
-        javaScriptEnabled={true}
-        injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT} // Initial injection for setting up the receiver
-        originWhitelist={["*"]}
-        onLoadEnd={() => injectData({mylocation: location, otherLocations: otherLocations})}
-        // onLoadEnd={() => injectData({latitude: 0, longitude: 0})}
-        onMessage={(event) => {
-            try {
-            const data = JSON.parse(event.nativeEvent.data);
+//         <WebView
+//         ref={webviewRef}
+//         source={require('../assets/html_pages/index2.html')}
+//         javaScriptEnabled={true}
+//         injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT} // Initial injection for setting up the receiver
+//         originWhitelist={["*"]}
+//         onLoadEnd={() => injectData({mylocation: location, otherLocations: otherLocations})}
+//         // onLoadEnd={() => injectData({latitude: 0, longitude: 0})}
+//         onMessage={(event) => {
+//             try {
+//             const data = JSON.parse(event.nativeEvent.data);
 
-            if (data.type === 'console') {
-                // Log HTML console messages in your Metro/Expo console
-                if (data.level === 'error') console.error('[WebView]', data.message);
-                else if (data.level === 'warn') console.warn('[WebView]', data.message);
-                else console.log('[WebView]', data.message);
-            } else {
-                // Handle other app messages (like location updates)
-                console.log('[WebView message]', data);
-            }
-            } catch (e) {
-            console.log('Raw WebView message:', event.nativeEvent.data);
-            }
-        }}
+//             if (data.type === 'console') {
+//                 // Log HTML console messages in your Metro/Expo console
+//                 if (data.level === 'error') console.error('[WebView]', data.message);
+//                 else if (data.level === 'warn') console.warn('[WebView]', data.message);
+//                 else console.log('[WebView]', data.message);
+//             } else {
+//                 // Handle other app messages (like location updates)
+//                 console.log('[WebView message]', data);
+//             }
+//             } catch (e) {
+//             console.log('Raw WebView message:', event.nativeEvent.data);
+//             }
+//         }}
                              
                             
-        // onLoadEnd={injectData}
-        />
-      ) : (
-        <Text style={styles.loading}>Loading location...</Text>
-      )}
-      </View>
+//         // onLoadEnd={injectData}
+//         />
+//       ) : (
+//         <Text style={styles.loading}>Loading location...</Text>
+//       )}
+//       </View>
 
-          <TouchableOpacity style={styles.sosButton}
-            //   onPress={sendSOS}
-                onPress={() => {
-                    fetch(`${process.env.EXPO_PUBLIC_POST_OTHER_LOCATIONS}`, {
-                        method: 'POST',
-                        headers: {
-                        'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ ...location }),
-                    })
-                }}
+//           <TouchableOpacity style={styles.sosButton}
+//             //   onPress={sendSOS}
+//                 onPress={() => {
+//                     fetch(`${process.env.EXPO_PUBLIC_POST_OTHER_LOCATIONS}`, {
+//                         method: 'POST',
+//                         headers: {
+//                         'Content-Type': 'application/json',
+//                         },
+//                         body: JSON.stringify({ ...location }),
+//                     })
+//                 }}
 
-          >
-        <Text style={styles.sosText}>SOS</Text>
-      </TouchableOpacity>
+//           >
+//         <Text style={styles.sosText}>SOS</Text>
+//       </TouchableOpacity>
 
-      {/* <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelSOS}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Sending Alert!</Text>
-            <Text style={styles.modalMsg}>
-              This will send your location to nearby users in {countdown} seconds unless you cancel.
-            </Text>
-            <View style={styles.modalButtons}>
-              <Button title="OK" onPress={confirmSOS} />
-              <Button title={`Cancel (${countdown})`} onPress={cancelSOS} color="red" />
-            </View>
-          </View>
-        </View>
-      </Modal> */}
-    </View>
-    //   </SafeAreaView>
-  );
-}
+//       {/* <Modal
+//         visible={modalVisible}
+//         transparent
+//         animationType="fade"
+//         onRequestClose={cancelSOS}
+//       >
+//         <View style={styles.modalOverlay}>
+//           <View style={styles.modalContent}>
+//             <Text style={styles.modalTitle}>Sending Alert!</Text>
+//             <Text style={styles.modalMsg}>
+//               This will send your location to nearby users in {countdown} seconds unless you cancel.
+//             </Text>
+//             <View style={styles.modalButtons}>
+//               <Button title="OK" onPress={confirmSOS} />
+//               <Button title={`Cancel (${countdown})`} onPress={cancelSOS} color="red" />
+//             </View>
+//           </View>
+//         </View>
+//       </Modal> */}
+//     </View>
+//     //   </SafeAreaView>
+//   );
+// }
 
 const styles = StyleSheet.create({
   container: { flex: 1},

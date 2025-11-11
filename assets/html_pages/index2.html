@@ -21,6 +21,9 @@
             height: 100%;
         }
     </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
 </head>
 
 <body>
@@ -57,12 +60,16 @@
 
         function initializeMap(lat = 0, lon = 0) {
             console.log("🗺️ Initializing map...");
-            map = L.map("map", { attributionControl: false }).setView([0, 0], 15);
+            map = L.map("map", {
+                attributionControl: false, zoomControl: true, worldCopyJump: true, maxBoundsViscosity: 0,
+                //    maxBounds: null,
+                //    //crs: L.CRS.Simple,
+                //    maxBounds: undefined,
+                //    minZoom: -5,
+                //    maxZoom: 5
+            }).setView([0, 0], 15);
 
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-
-            }).addTo(map);
-
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
             // 🧭 Primary marker (your location)
             myMarker = L.marker([lat, lon]).addTo(map);
             myMarker.bindPopup(`Loading your location...`, { autoClose: false, closeOnClick: false }).openPopup();
