@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "568008744021",
+    "project_id": "women-s-safety-465bb",
+    "storage_bucket": "women-s-safety-465bb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:568008744021:android:53d517dc955f34ab9248dc",
+        "android_client_info": {
+          "package_name": "com.TPSA.safety_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "568008744021-qb1t4b431p8bqtd17sb6o30r9hdk8sa9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.TPSA.safety_app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "568008744021-54s2csht7gmdo7slao40t0e0lh0k16g5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhosKC4FuvqWnlVE_qbsReipm13kjrD-Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "568008744021-54s2csht7gmdo7slao40t0e0lh0k16g5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

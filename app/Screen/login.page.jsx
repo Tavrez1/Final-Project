@@ -1,9 +1,9 @@
+import { registerRootComponent } from 'expo';
 import { BlurView } from "expo-blur";
 import { Link } from "expo-router";
-import { Image, ImageBackground, Pressable, Text, TextInput, View } from "react-native";
+import { ImageBackground, Pressable, Text, TextInput, View } from "react-native";
 import bg_img from "../../assets/images/girl_alone.png";
-import google_img from "../../assets/images/google.png";
-
+import GoogleAuthenticationButton from "../../components/GoogleAuthenticationButton";
 
 export default function LoginPage() {
     return (
@@ -83,7 +83,7 @@ export default function LoginPage() {
                     </Pressable>
 
                     {/* Google Login */}
-                    <Pressable
+                    {/* <Pressable
                         onPress={() => console.log("Google Signup")}
                         style={{
                             marginTop: 10,
@@ -102,7 +102,9 @@ export default function LoginPage() {
                             style={{ width: 22, height: 22, marginRight: 10 }}
                         />
                         <Text style={{ fontWeight: "bold" }}>Sign Up with Google</Text>
-                    </Pressable>
+                    </Pressable> */}
+
+                    <GoogleAuthenticationButton />
 
                     {/* Bottom text */}
                     <View
@@ -125,3 +127,5 @@ export default function LoginPage() {
         // </LinearGradient>
     );
 }
+
+registerRootComponent(LoginPage);

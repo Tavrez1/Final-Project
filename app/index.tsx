@@ -1,9 +1,5 @@
 // import * as Notifications from 'expo-notifications';
 import React from 'react';
-import { StyleSheet } from 'react-native';
-
-
-
 
 import { Redirect } from 'expo-router';
 
@@ -136,7 +132,7 @@ export default function Index() {
 //       <View style={styles.container}>
           
 //           <View style={{ margin:25, width: 40, height: 40, position: 'absolute', backgroundColor: 'white', zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 10, elevation: 15}}>
-//               <Menu size={ 20} />
+//               <Menu size={20} />
 //           </View>
 //       <View style={styles.mapContainer}> 
 //       {location ? (
@@ -215,64 +211,64 @@ export default function Index() {
 //   );
 // }
 
-const styles = StyleSheet.create({
-  container: { flex: 1},
-  mapContainer: {
-      marginLeft: "auto",
-      marginRight: "auto",
-      height: "100%",
-      width: "100%",
-      borderWidth: 2,
-      borderColor: "#b8bab9",
-      },
+// const styles = StyleSheet.create({
+//   container: { flex: 1},
+//   mapContainer: {
+//       marginLeft: "auto",
+//       marginRight: "auto",
+//       height: "100%",
+//       width: "100%",
+//       borderWidth: 2,
+//       borderColor: "#b8bab9",
+//       },
 
-  loading: {
-    flex: 1,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-  },
-  sosButton: {
-    position: 'absolute',
-    bottom: 40,
-    left: '50%',
-    transform: [{ translateX: "-50%" }],
-    backgroundColor: 'red',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 50,
-    elevation: 10,
-  },
-  sosText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 25,
-    borderRadius: 10,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  modalMsg: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-});
+//   loading: {
+//     flex: 1,
+//     textAlign: 'center',
+//     textAlignVertical: 'center',
+//   },
+//   sosButton: {
+//     position: 'absolute',
+//     bottom: 40,
+//     left: '50%',
+//     transform: [{ translateX: "-50%" }],
+//     backgroundColor: 'red',
+//     paddingVertical: 14,
+//     paddingHorizontal: 40,
+//     borderRadius: 50,
+//     elevation: 10,
+//   },
+//   sosText: {
+//     color: 'white',
+//     fontSize: 24,
+//     fontWeight: 'bold',
+//     textAlign: 'center',
+//   },
+//   modalOverlay: {
+//     flex: 1,
+//     backgroundColor: 'rgba(0,0,0,0.5)',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   modalContent: {
+//     backgroundColor: 'white',
+//     padding: 25,
+//     borderRadius: 10,
+//     width: '80%',
+//   },
+//   modalTitle: {
+//     fontSize: 20,
+//     fontWeight: 'bold',
+//     marginBottom: 10,
+//     textAlign: 'center',
+//   },
+//   modalMsg: {
+//     fontSize: 16,
+//     textAlign: 'center',
+//     marginBottom: 20,
+//   },
+//   modalButtons: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-around',
+//   },
+// });
