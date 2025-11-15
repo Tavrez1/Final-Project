@@ -1,131 +1,140 @@
+import { getAuth, signInWithEmailAndPassword } from "@react-native-firebase/auth";
 import { registerRootComponent } from 'expo';
 import { BlurView } from "expo-blur";
-import { Link } from "expo-router";
+import { Link, Redirect } from "expo-router";
+import { useState } from 'react';
 import { ImageBackground, Pressable, Text, TextInput, View } from "react-native";
 import bg_img from "../../assets/images/girl_alone.png";
 import GoogleAuthenticationButton from "../../components/GoogleAuthenticationButton";
+import { useAuth } from '../../context/AuthContext';
+
 
 export default function LoginPage() {
-    return (
-        // <LinearGradient
-        //     colors={["#141E30", "#243B55"]}
-        //     style={{
-        //         flex: 1,
-        //         justifyContent: "center",
-        //         alignItems: "center",
-        //         paddingHorizontal: 20,
-        //     }}
-        // >
-        <ImageBackground
-            source={bg_img}
-            style={{ width: "100%", flex: 1, justifyContent: "center" }}
-            resizeMode="cover"
-        >
-            <View style={{ width: "100%", gap: 20, background: `url(${bg_img})`, paddingHorizontal: 20, }}>
-                <BlurView intensity={100} tint="dark" style={{ padding: 30, borderRadius: 20, gap: 20, overflow: 'hidden', }}>
+    const { user } = useAuth()
 
-                    {/* Username */}
-                    <TextInput
-                        placeholder="Username"
-                        placeholderTextColor="#ccc"
-                        style={{
-                            borderWidth: 1,
-                            borderColor: "rgba(255,255,255,0.3)",
-                            padding: 12,
-                            borderRadius: 10,
-                            backgroundColor: "rgba(255,255,255,0.1)",
-                            color: "white",
-                        }}
-                    />
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
 
-                    {/* Password */}
-                    <TextInput
-                        placeholder="Password"
-                        secureTextEntry
-                        placeholderTextColor="#ccc"
-                        style={{
-                            borderWidth: 1,
-                            borderColor: "rgba(255,255,255,0.3)",
-                            padding: 12,
-                            borderRadius: 10,
-                            backgroundColor: "rgba(255,255,255,0.1)",
-                            color: "white",
-                        }}
-                    />
+    const handleLogin = async () => {
+        if (!email || !password) return alert("Please fill all fields");
 
-                    {/* Forgot password */}
-                    <Link href="/forgot-password">
-                        <Text
+        setLoading(true);
+
+        try {
+            const auth = getAuth();
+            await signInWithEmailAndPassword(auth, email, password);
+            console.log("Logged in successfully!");
+        } catch (error) {
+            console.log(error);
+            alert(error.message);
+        }
+
+        setLoading(false);
+    };
+
+
+    if (!user) {
+        return (
+            <ImageBackground
+                source={bg_img}
+                style={{ width: "100%", flex: 1, justifyContent: "center" }}
+                resizeMode="cover"
+            >
+                <View style={{ width: "100%", gap: 20, background: `url(${bg_img})`, paddingHorizontal: 20, }}>
+                    <BlurView intensity={100} tint="dark" style={{ padding: 30, borderRadius: 20, gap: 20, overflow: 'hidden', }}>
+
+                        {/* Username */}
+                        <TextInput
+                            placeholder="Email"
+                            placeholderTextColor="#ccc"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
                             style={{
-                                color: "#4DA6FF",
-                                textAlign: "right",
-                                marginTop: -10,
-                                marginBottom: 10,
+                                borderWidth: 1,
+                                borderColor: "rgba(255,255,255,0.3)",
+                                padding: 12,
+                                borderRadius: 10,
+                                backgroundColor: "rgba(255,255,255,0.1)",
+                                color: "white",
                             }}
-                        >
-                            Forgot Your Password?
-                        </Text>
-                    </Link>
-
-                    {/* Login Button */}
-                    <Pressable
-                        onPress={() => console.log("Login pressed")}
-                        style={{
-                            backgroundColor: "white",
-                            paddingVertical: 15,
-                            borderRadius: 10,
-                            alignItems: "center",
-                        }}
-                    >
-                        <Text style={{ color: "black", fontWeight: "bold", fontSize: 16 }}>
-                            Login
-                        </Text>
-                    </Pressable>
-
-                    {/* Google Login */}
-                    {/* <Pressable
-                        onPress={() => console.log("Google Signup")}
-                        style={{
-                            marginTop: 10,
-                            padding: 12,
-                            borderRadius: 10,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderWidth: 1,
-                            borderColor: "rgba(255,255,255,0.3)",
-                            backgroundColor: "white",
-                        }}
-                    >
-                        <Image
-                            source={google_img}
-                            style={{ width: 22, height: 22, marginRight: 10 }}
                         />
-                        <Text style={{ fontWeight: "bold" }}>Sign Up with Google</Text>
-                    </Pressable> */}
 
-                    <GoogleAuthenticationButton />
+                        {/* Password */}
+                        <TextInput
+                            placeholder="Password"
+                            placeholderTextColor="#ccc"
+                            secureTextEntry
+                            value={password}
+                            onChangeText={setPassword}
+                            style={{
+                                borderWidth: 1,
+                                borderColor: "rgba(255,255,255,0.3)",
+                                padding: 12,
+                                borderRadius: 10,
+                                backgroundColor: "rgba(255,255,255,0.1)",
+                                color: "white",
+                            }}
+                        />
 
-                    {/* Bottom text */}
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            justifyContent: "center",
-                        }}
-                    >
-                        <Text style={{ color: "white" }}>Don’t have an account? </Text>
-                        <Link href="./signup.page">
-                            <Text style={{ color: "#4DA6FF", fontWeight: "bold" }}>
-                                Sign Up
+                        {/* Forgot password */}
+                        <Link href="/forgot-password">
+                            <Text
+                                style={{
+                                    color: "#4DA6FF",
+                                    textAlign: "right",
+                                    marginTop: -10,
+                                    marginBottom: 10,
+                                }}
+                            >
+                                Forgot Your Password?
                             </Text>
                         </Link>
-                    </View>
 
-                </BlurView>
-            </View>
-        </ImageBackground >
-        // </LinearGradient>
-    );
+                        {/* Login Button */}
+                        <Pressable
+                            onPress={handleLogin}
+                            disabled={loading}
+                            style={{
+                                backgroundColor: "white",
+                                paddingVertical: 15,
+                                borderRadius: 10,
+                                alignItems: "center",
+                                opacity: loading ? 0.6 : 1,
+                            }}
+                        >
+                            <Text style={{ color: "black", fontWeight: "bold", fontSize: 16 }}>
+                                {loading ? "Logging in..." : "Login"}
+                            </Text>
+                        </Pressable>
+
+                        <GoogleAuthenticationButton />
+
+                        {/* Bottom text */}
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <Text style={{ color: "white" }}>Don’t have an account? </Text>
+                            <Link href="./signup.page">
+                                <Text style={{ color: "#4DA6FF", fontWeight: "bold" }}>
+                                    Sign Up
+                                </Text>
+                            </Link>
+                        </View>
+
+                    </BlurView>
+                </View>
+            </ImageBackground >
+            // </LinearGradient>
+        );
+    }
+
+    return <Redirect href="./map.page" />
 }
 
 registerRootComponent(LoginPage);

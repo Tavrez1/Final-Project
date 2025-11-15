@@ -16,6 +16,10 @@
         "comments": ""
     },
     "files.exclude": {
-        "app/index.jsx": true
+        "app/index.jsx": true,
+        ".annotations": true,
+        ".expo": true,
+        ".idea": true,
+        "**/node_modules": true
     }
 }
