@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1, width=device-width">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .arrow-icon {
+            width: 40px;
+            height: 40px;
+            transform-origin: center center;
+            filter: brightness(0) saturate(100%) invert(46%) sepia(85%) saturate(3000%) hue-rotate(190deg) brightness(105%) contrast(95%);
+        }
+
+        .gmaps-speed {
+            font-size: 35px;
+            font-weight: 600;
+            color: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+            margin: -7px;
+            padding: 0;
+        }
+
+        .gmaps-unit {
+            font-size: 12px;
+            font-weight: 500;
+            color: #ffffffcc;
+            font-family: Arial, Helvetica, sans-serif;
+            margin-left: 4px;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+            margin: 0;
+            padding: 0;
+        }
+
+        .speed-container {
+            position: absolute;
+            bottom: 20px;
+            left: 15px;
+            background: black;
+            border-radius: 50%;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 50px;
+            height: 50px;
+            padding: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <div class="speed-container">
+        <span id="speedBox" class="gmaps-speed">0</span>
+        <span class="gmaps-unit"> m/s </span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        (function () {
+            const oldLog = console.log;
+            const oldError = console.error;
+            const oldWarn = console.warn;
+
+            function sendToReactNative(level, message) {
+                if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                    window.ReactNativeWebView.postMessage(
+                        JSON.stringify({ type: "console", level, message })
+                    );
+                }
+            }
+
+            console.log = (...args) => { oldLog(...args); sendToReactNative("log", args.join(" ")); };
+            console.error = (...args) => { oldError(...args); sendToReactNative("error", args.join(" ")); };
+            console.warn = (...args) => { oldWarn(...args); sendToReactNative("warn", args.join(" ")); };
+        })();
+    </script>
+
+    <script>
+        console.log("hi from map tracer")
+        var map = L.map('map').setView([0, 0], 18);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        var pathLine = L.polyline([], { color: 'blue', weight: 4 }).addTo(map);
+
+        var icon = L.divIcon({
+            html: '<img class="arrow-icon" id="arrow" src="https://cdn-icons-png.flaticon.com/512/10324/10324799.png" />',
+            iconSize: [40, 40],
+            className: ""
+        });
+
+        var userMarker = L.marker([0, 0], { icon: icon }).addTo(map);
+
+        document.addEventListener("message", (event) => {
+            const data = JSON.parse(event.data);
+
+            // update speed
+            if (data.speed !== undefined) {
+                const speedBox = document.getElementById("speedBox");
+                if (speedBox) {
+                    const mps = data.speed.toFixed(2);
+                    speedBox.innerHTML = parseInt(mps);
+                }
+            }
+
+            // rotate arrow
+            if (data.heading !== undefined) {
+                const arrow = document.getElementById("arrow");
+                if (arrow) {
+                    arrow.style.transform = "rotate(" + (data.heading - 90) + "deg)";
+                }
+            }
+
+            // update path + marker
+            if (data.path) {
+                const coords = data.path.map(p => [p.lat, p.lng]);
+                pathLine.setLatLngs(coords);
+
+                if (coords.length > 0) {
+                    const latest = coords[coords.length - 1];
+                    userMarker.setLatLng(latest);
+                    map.setView(latest);
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>

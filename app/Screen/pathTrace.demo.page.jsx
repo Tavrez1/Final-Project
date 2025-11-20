@@ -4,69 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { WebView } from "react-native-webview";
 
-const leafletHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="initial-scale=1, width=device-width">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<style>
-  html, body, #map { height: 100%; margin: 0; padding: 0; }
-  .arrow-icon {
-    width: 40px;
-    height: 40px;
-    transform-origin: center center;
-  }
-</style>
-</head>
-<body>
-
-<div id="map"></div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<script>
-  var map = L.map('map').setView([0, 0], 18);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-  var pathLine = L.polyline([], { color: 'blue', weight: 4 }).addTo(map);
-
-  var icon = L.divIcon({
-    html: '<img class="arrow-icon" id="arrow" src="https://cdn-icons-png.flaticon.com/512/684/684908.png" />',
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    className: ""
-  });
-
-  var userMarker = L.marker([0, 0], { icon: icon }).addTo(map);
-
-  document.addEventListener("message", (event) => {
-    const data = JSON.parse(event.data);
-
-    const coords = data.path.map(p => [p.lat, p.lng]);
-
-    pathLine.setLatLngs(coords);
-
-    if (coords.length > 0) {
-      const latest = coords[coords.length - 1];
-      userMarker.setLatLng(latest);
-      map.setView(latest);
-
-      // rotate arrow
-      if (data.heading !== undefined) {
-        const arrow = document.getElementById("arrow");
-        if (arrow) {
-          arrow.style.transform = "rotate(" + data.heading + "deg)";
-        }
-      }
-    }
-  });
-</script>
-
-</body>
-</html>
-`;
 
 
 // ---- Helper functions ----
@@ -97,89 +34,225 @@ function smoothPath(points) {
     return [...points.slice(0, -1), { ...last[last.length - 1], lat: avgLat, lng: avgLng }];
 }
 
+// ----------------------------
+// Kalman 1D (speed) - lightweight adaptive implementation
+// ----------------------------
+class Kalman1D {
+    constructor({ q = 0.1, r = 1, initial = 0 } = {}) {
+        // state: estimated speed (m/s)
+        this.x = initial;
+        // error covariance
+        this.P = 1;
+        this.Q = q; // process noise
+        this.R = r; // measurement noise
+    }
+
+    setQ(q) {
+        this.Q = q;
+    }
+
+    setR(r) {
+        this.R = r;
+    }
+
+    predict() {
+        // state has simple model: x_k = x_{k-1} (we assume speed changes via process noise)
+        // P = P + Q
+        this.P = this.P + this.Q;
+    }
+
+    update(z) {
+        // z: measurement (raw speed)
+        // K = P / (P + R)
+        const K = this.P / (this.P + this.R);
+        // x = x + K * (z - x)
+        this.x = this.x + K * (z - this.x);
+        // P = (1 - K) * P
+        this.P = (1 - K) * this.P;
+        return this.x;
+    }
+}
+
 export default function PathTracerDemoPage() {
+
     const webviewRef = useRef(null);
     const [pathHistory, setPathHistory] = useState([]);
     const [heading, setHeading] = useState(0);
+
+    // ---- NEW STATES FOR SPEED ----
+    const [speed, setSpeed] = useState(0);
     const lastPointRef = useRef(null);
 
-    // ---- Compass Listener ----
+    // keep a ref for latest heading so GPS loop can access it if needed
+    const headingRef = useRef(0);
+
+    // Kalman filter ref
+    const kfRef = useRef(null);
+
+    // buffer to compute acceleration-based Q adaptation (keep last filtered speed)
+    const prevFilteredSpeedRef = useRef(0);
+    const prevTimeRef = useRef(null);
+
+    // ------------------------------------
+    // Magnetometer (continuous heading)
+    // ------------------------------------
     useEffect(() => {
-        Magnetometer.addListener((data) => {
+        let subscription = Magnetometer.addListener((data) => {
             let angle = Math.atan2(data.y, data.x) * (180 / Math.PI);
-            setHeading(10);
+            angle = angle >= 0 ? angle : angle + 360;
+
+            setHeading(angle);
+            headingRef.current = angle;
+
+            // send heading-only update
+            if (webviewRef.current) {
+                webviewRef.current.postMessage(JSON.stringify({ heading: angle }));
+            }
         });
+
+        Magnetometer.setUpdateInterval(100); // smooth rotation
+        return () => subscription?.remove();
     }, []);
 
-    // ---- GPS Listener ----
+    // initialize Kalman once
     useEffect(() => {
+        if (!kfRef.current) {
+            // initial small Q, R — we'll adapt Q and R dynamically per measurement
+            kfRef.current = new Kalman1D({ q: 0.1, r: 1, initial: 0 });
+        }
+    }, []);
+
+    // ------------------------------------
+    // GPS tracking + adaptive Kalman speed
+    // ------------------------------------
+    useEffect(() => {
+        let watcher = null;
+
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== "granted") {
-                alert("Permission denied");
-                return;
-            }
+            if (status !== "granted") return;
 
-            Location.watchPositionAsync(
+            watcher = await Location.watchPositionAsync(
                 {
-                    accuracy: Location.Accuracy.High,
-                    timeInterval: 2000,
+                    accuracy: Location.Accuracy.Highest,
                     distanceInterval: 1,
+                    timeInterval: 100,
                 },
-                (location) => {
+                (pos) => {
                     const newPoint = {
-                        lat: location.coords.latitude,
-                        lng: location.coords.longitude,
-                        accuracy: location.coords.accuracy,
-                        speed: location.coords.speed, // m/s
-                        timestamp: Date.now(),
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy ?? 999, // use if available
                     };
 
-                    // Accuracy Filter
-                    if (newPoint.accuracy > 25) return;
+                    // ---- SPEED CALCULATION (raw) ----
+                    let rawSpeed = 0; // default 0 m/s
+                    const now = Date.now();
 
-                    // Deadband (minimum movement 3m)
                     if (lastPointRef.current) {
-                        const d = distanceInMeters(
-                            lastPointRef.current.lat,
-                            lastPointRef.current.lng,
-                            newPoint.lat,
-                            newPoint.lng
-                        );
+                        const prev = lastPointRef.current;
+                        const dist = distanceInMeters(prev.lat, prev.lng, newPoint.lat, newPoint.lng);
+                        const timeSec = (now - prev.time) / 1000;
 
-                        if (d < 3) return; // ignore noise
-                    }
+                        rawSpeed = timeSec > 0 ? dist / timeSec : 0; // m/s
 
-                    lastPointRef.current = newPoint;
-
-                    setPathHistory((prev) => {
-                        const fiveMin = Date.now() - 5 * 60 * 1000;
-
-                        let updated = [...prev, newPoint].filter((p) => p.timestamp >= fiveMin);
-
-                        // Smooth
-                        // updated = smoothPath(updated);
-
-                        if (webviewRef.current) {
-                            webviewRef.current.postMessage(
-                                JSON.stringify({
-                                    path: updated,
-                                    heading,
-                                    speed: (newPoint.speed * 3.6).toFixed(1), // km/h
-                                })
-                            );
+                        // Ignore tiny movements (GPS jitter)
+                        if (dist < 0.5) {
+                            rawSpeed = 0;
                         }
 
-                        return updated;
-                    });
+                        // If GPS reported accuracy is poor, ignore this measurement (treat rawSpeed as 0)
+                        if (newPoint.accuracy > 25) { // you can tune this threshold
+                            rawSpeed = 0;
+                        }
+                    }
+
+                    // ---- ADAPTIVE KALMAN STEPS ----
+                    const kf = kfRef.current;
+
+                    // compute dt for acceleration-based adaptation
+                    const prevTime = prevTimeRef.current ?? now;
+                    const dt = Math.max(0.001, (now - prevTime) / 1000); // seconds
+                    prevTimeRef.current = now;
+
+                    // approximate acceleration (based on previous filtered value)
+                    const prevFiltered = prevFilteredSpeedRef.current ?? 0;
+                    const approxAcc = (rawSpeed - prevFiltered) / dt; // m/s^2
+
+                    // adapt process noise Q based on acceleration magnitude (more accel -> larger Q)
+                    // baseQ small (stable), add term proportional to |acc|
+                    const baseQ = 0.05; // base process noise
+                    const accFactor = Math.min(Math.abs(approxAcc) * 0.5, 5); // cap influence
+                    let adaptiveQ = baseQ + accFactor;
+
+                    // also increase measurement noise R when GPS accuracy is poor (less trust in measurement)
+                    const baseR = 0.5; // base measurement noise
+                    // map accuracy (meters) to R: higher accuracy -> higher R
+                    const gpsAccuracy = newPoint.accuracy ?? 10;
+                    const adaptiveR = baseR + Math.min(gpsAccuracy / 10, 10); // cap
+
+                    // set filter params
+                    if (kf) {
+                        kf.setQ(adaptiveQ);
+                        kf.setR(adaptiveR);
+                        kf.predict();
+                        const filtered = kf.update(rawSpeed);
+                        prevFilteredSpeedRef.current = filtered;
+
+                        // update React state with filtered speed
+                        setSpeed(filtered);
+
+                        // update lastPoint and path
+                        lastPointRef.current = { ...newPoint, time: now };
+
+                        setPathHistory((prev) => {
+                            const newHistory = [...prev, { lat: newPoint.lat, lng: newPoint.lng, timestamp: now }];
+
+                            // send path + filtered speed
+                            if (webviewRef.current) {
+                                webviewRef.current.postMessage(
+                                    JSON.stringify({
+                                        path: newHistory,
+                                        speed: filtered, // filtered m/s
+                                    })
+                                );
+                            }
+
+                            return newHistory;
+                        });
+                    } else {
+                        // fallback: no Kalman (shouldn't happen)
+                        setSpeed(rawSpeed);
+                        lastPointRef.current = { ...newPoint, time: now };
+                        setPathHistory((prev) => {
+                            const newHistory = [...prev, { lat: newPoint.lat, lng: newPoint.lng, timestamp: now }];
+                            if (webviewRef.current) {
+                                webviewRef.current.postMessage(JSON.stringify({ path: newHistory, speed: rawSpeed }));
+                            }
+                            return newHistory;
+                        });
+                    }
                 }
             );
         })();
-    }, [heading]);
+
+        return () => {
+            if (watcher && watcher.remove) watcher.remove();
+        };
+    }, []); // run once
 
     return (
         <View style={{ flex: 1 }}>
-            <WebView ref={webviewRef} source={{ html: leafletHTML }} />
+            <WebView
+                ref={webviewRef}
+                originWhitelist={["*"]}
+                source={require('../../assets/html_pages/pathTrace.demo.html')}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                onMessage={(event) => {
+                    console.log("[MapTracer] ", event.nativeEvent.data);
+                }}
+            />
         </View>
     );
 }

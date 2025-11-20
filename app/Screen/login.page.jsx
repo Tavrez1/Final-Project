@@ -134,7 +134,7 @@ export default function LoginPage() {
         );
     }
 
-    return <Redirect href="./map.page" />
+    return <Redirect href="../index.tsx" />
 }
 
 registerRootComponent(LoginPage);
