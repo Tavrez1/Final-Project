@@ -20,5 +20,6 @@ export default function Index() {
     return <Redirect href="./Screen/login.page" />;
   }
 
-  return <Redirect href="./Screen/map.page" />;
+//   return <Redirect href="./Screen/map.page" />;
+  return <Redirect href="./Screen/pathTrace.demo.page" />;
 }

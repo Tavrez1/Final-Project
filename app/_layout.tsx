@@ -11,8 +11,7 @@ export default function RootLayout() {
             <Stack.Screen name="Screen/login.page" options={{ title: 'Login', headerTitleAlign: 'center', headerShown: false}}/>
             <Stack.Screen name="Screen/signup.page" options={{ title: 'SignUp', headerTitleAlign: 'center', headerShown: false}}/>
             <Stack.Screen name="Screen/map.page" options={{ title: 'Map', headerTitleAlign: 'center', headerShown: false}}/>
-            <Stack.Screen name="Screen/pathTrace.demo.page" options={{ title: 'Map', headerTitleAlign: 'center', headerShown: false}}/>
-            {/* <Stack.Screen name="signup" options={{ title: 'SignUp', headerTitleAlign: 'center'}}/> */}
+            <Stack.Screen name="Screen/pathTrace.demo.page" options={{ title: 'PathTracer', headerTitleAlign: 'center', headerShown: false}}/>
         </Stack>
       </AuthProvider>
   );

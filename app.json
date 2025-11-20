@@ -38,7 +38,13 @@
             ],
             "@react-native-google-signin/google-signin",
             "expo-web-browser",
-            "expo-font"
+            "expo-font",
+            [
+                "expo-sensors",
+                {
+                    "motionPermission": "Allow Safety App to access your device motion"
+                }
+            ]
         ],
         "experiments": {
             "typedRoutes": true
